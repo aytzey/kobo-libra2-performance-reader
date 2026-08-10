@@ -1,0 +1,13 @@
+diff --git a/Makefile b/Makefile
+index ac5f9fc9d..13253ac0b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -299,7 +299,7 @@ generate: source/html/css-properties.h
+ # --- Library ---
+ 
+ ifeq ($(shared),yes)
+-  $(OUT)/libmupdf.$(SO)$(SO_VERSION): $(MUPDF_OBJ) $(THIRD_OBJ)
++  $(OUT)/libmupdf.$(SO)$(SO_VERSION): $(MUPDF_OBJ) $(THIRD_OBJ) $(XLIBS)
+ 	$(LINK_SO_CMD) $(THIRD_LIBS) $(LIBCRYPTO_LIBS) $(LIBS)
+   ifeq ($(OS),OpenBSD)
+     # should never create symlink

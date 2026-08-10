@@ -1,0 +1,1087 @@
+padded_version = $(subst $(empty) $(empty),0,$(shell printf '.%2s' $(subst .,$(empty) $(empty),$1)))
+at_least_version = $(filter $(call padded_version,$2),$(firstword $(sort $(call padded_version,$1) $(call padded_version,$2))))
+
+USING_MAKE_4_4_OR_BETTER := $(call at_least_version,$(MAKE_VERSION),4.4)
+ifeq (,$(or $(USING_MAKE_4_4_OR_BETTER),$(call at_least_version,$(MAKE_VERSION),4.1)))
+  $(error your version of make is too old: $(MAKE_VERSION), need at least 4.1)
+endif
+
+# What are we running on?
+CURRENT_OS := $(shell uname -s)
+ifeq ($(CURRENT_OS), Darwin)
+  CURRENT_OS := darwin
+else ifeq ($(CURRENT_OS), Linux)
+  CURRENT_OS := linux
+else
+  $(warning unsupported operating system: $(CURRENT_OS))
+endif
+
+# Prevent make from removing targets it considers as intermediate.
+.SECONDARY:
+
+# Note: ensure our possibly updated `PATH` variable is picked up by
+# `$(shell …)` invocations when using older (<4.4) make versions.
+ifeq (,$(filter shell-export,$(.FEATURES)))
+  SHELL = env PATH='$(PATH)' bash -eo pipefail
+else
+  SHELL = bash -eo pipefail
+endif
+
+ifeq (,$(V)$(VERBOSE))
+.SILENT:
+endif
+
+# Use ccache in build system by default. Define USE_NO_CCACHE=1 to force disable it.
+ifeq ($(USE_NO_CCACHE), 1)
+  CCACHE :=
+else
+  CCACHE := $(or $(CCACHE),$(shell command -v ccache))
+endif
+
+TOOLCHAIN_DIR = $(abspath $(KOR_BASE)/toolchain)
+ANDROID_ARCH ?= arm
+export ANDROID_HOME := $(or $(ANDROID_HOME),$(ANDROID_SDK_ROOT),$(TOOLCHAIN_DIR)/android-sdk-linux)
+export ANDROID_SDK_ROOT := $(ANDROID_HOME)
+export ANDROID_NDK_HOME := $(or $(ANDROID_NDK_HOME),$(ANDROID_NDK_ROOT),$(TOOLCHAIN_DIR)/android-ndk-r23c)
+export ANDROID_NDK_ROOT := $(ANDROID_NDK_HOME)
+ANDROID_TOOLCHAIN = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/$(CURRENT_OS)-x86_64
+ifeq ($(ANDROID_ARCH), arm64)
+	# 64bit arches require at least ABI 21.
+	export NDKABI?=21
+else ifeq ($(ANDROID_ARCH), x86_64)
+	# Ditto.
+	export NDKABI?=21
+else
+	# Android 4.3 (Jelly Bean MR2); our minimal supported version.
+	export NDKABI?=18
+endif
+
+CMAKE := cmake -Wdev --warn-uninitialized
+CMAKE_VERSION := $(word 3,$(shell cmake --version))
+USING_CMAKE_3_24_OR_BETTER := $(call at_least_version,$(CMAKE_VERSION),3.24.0)
+
+NINJA := $(or $(NINJA),ninja)
+
+NINJA_VERSION := $(shell $(NINJA) --version)
+USING_NINJA_1_13_OR_BETTER := $(call at_least_version,$(NINJA_VERSION),1.13.0)
+
+# Make / ninja flags.
+KEEP_GOING := $(findstring k,$(firstword -$(MAKEFLAGS)))
+DRY_RUN := $(findstring n,$(firstword -$(MAKEFLAGS)))
+ifeq (0,$(MAKELEVEL))
+  ifeq (,$(PARALLEL_JOBS))
+    space := $(empty) $(empty)
+    PARALLEL_JOBS := $(or $(patsubst -j%,%,$(filter -j%,$(MFLAGS))))
+  endif
+  ifeq (,$(PARALLEL_LOAD))
+    PARALLEL_LOAD := $(or $(patsubst -l%,%,$(filter -l%,$(MFLAGS))))
+  endif
+  ifeq (,$(PARALLEL_JOBS))
+    CORES := $(shell getconf _NPROCESSORS_ONLN)
+    ALLOCATED_CORES := $(CORES)
+    # Detect when running under cgroups, so we don't try
+    # to run with `make/ninja -j36 …` on some CI workers.
+    ifneq (,$(wildcard /sys/fs/cgroup/cpu/cpu.shares))
+      ALLOCATED_CORES := $(shell echo $$(($$(cat /sys/fs/cgroup/cpu/cpu.shares) / 1024)))
+    endif
+    PARALLEL_JOBS := $(ALLOCATED_CORES)
+  endif
+  ifneq (,$(or $(VERBOSE),$(V)))
+    MAKEFLAGS += $(if $(USING_MAKE_4_4_OR_BETTER),--debug=print,--trace)
+    NINJAFLAGS += -v
+    export KOVERBOSE=1
+  endif
+  ifneq (,$(PARALLEL_JOBS))
+    MAKEFLAGS += -j$(PARALLEL_JOBS)
+    NINJAFLAGS += $(if $(and $(USING_MAKE_4_4_OR_BETTER),$(USING_NINJA_1_13_OR_BETTER)),,-j$(PARALLEL_JOBS))
+  endif
+  ifneq (,$(PARALLEL_LOAD))
+    MAKEFLAGS += -l$(PARALLEL_LOAD)
+    NINJAFLAGS += -l$(PARALLEL_LOAD)
+  endif
+  ifneq (,$(KEEP_GOING))
+    MAKEFLAGS += -k
+    NINJAFLAGS += -k0
+  endif
+  ifneq (,$(DRY_RUN))
+    MAKEFLAGS += -n
+    NINJAFLAGS += -nv
+  endif
+  ifneq ($(or $(CLICOLOR_FORCE),$(MAKE_TERMOUT)),)
+    export CLICOLOR_FORCE=1
+    NINJA_STATUS := $(shell printf '\33[32;1m▸%%p\33[0m | ')
+  else
+    NINJA_STATUS := $(empty) %p | $(empty)
+  endif
+  export NINJA_STATUS
+  export NINJAFLAGS
+endif
+
+CMAKE_FLAGS = $(if $(USING_CMAKE_3_24_OR_BETTER),--fresh) -G Ninja
+
+# set this to your ARM cross compiler:
+# set CC CXX AR LD RANLIB
+ifeq ($(TARGET), arm-generic)
+	CHOST?=arm-linux-gnueabi
+else ifeq ($(TARGET), kindle)
+	KINDLE=1
+	HAS_KINDLE5_TC:=$(shell command -v arm-kindle5-linux-gnueabi-gcc 2> /dev/null)
+	ifdef HAS_KINDLE5_TC
+		#Use the custom build TC
+		CHOST?=arm-kindle5-linux-gnueabi
+	else
+		#Use the generic linaro TC for debugging
+		CHOST?=arm-linux-gnueabi
+	endif
+	GLIBC_VERSION_MAX = 2.12
+else ifeq ($(TARGET), kindlepw2)
+	KINDLE=1
+	HAS_KINDLEPW2_TC:=$(shell command -v arm-kindlepw2-linux-gnueabi-gcc 2> /dev/null)
+	ifdef HAS_KINDLEPW2_TC
+		CHOST?=arm-kindlepw2-linux-gnueabi
+	else
+		CHOST?=arm-linux-gnueabi
+	endif
+	GLIBC_VERSION_MAX = 2.12
+else ifeq ($(TARGET), kindlehf)
+	KINDLE=1
+	HAS_KINDLEHF_TC:=$(shell command -v arm-kindlehf-linux-gnueabihf-gcc 2> /dev/null)
+	ifdef HAS_KINDLEHF_TC
+		CHOST?=arm-kindlehf-linux-gnueabihf
+	else
+		CHOST?=arm-linux-gnueabihf
+	endif
+	GLIBC_VERSION_MAX = 2.20
+else ifeq ($(TARGET), kindle-legacy)
+	KINDLE=1
+	CHOST?=arm-kindle-linux-gnueabi
+	LEGACY=1
+	GLIBC_VERSION_MAX = 2.5
+else ifeq ($(TARGET), kobo)
+	KOBO=1
+	HAS_KOBO_TC:=$(shell command -v arm-kobo-linux-gnueabihf-gcc 2> /dev/null)
+	ifdef HAS_KOBO_TC
+		CHOST?=arm-kobo-linux-gnueabihf
+	else
+		CHOST?=arm-linux-gnueabihf
+	endif
+	USE_LJ_WPACLIENT=1
+	GLIBC_VERSION_MAX = 2.15
+else ifeq ($(TARGET), kobov4)
+	KOBO=1
+	HAS_KOBOV4_TC:=$(shell command -v arm-kobov4-linux-gnueabihf-gcc 2> /dev/null)
+	ifdef HAS_KOBOV4_TC
+		CHOST?=arm-kobov4-linux-gnueabihf
+	else
+		CHOST?=arm-linux-gnueabihf
+	endif
+	USE_LJ_WPACLIENT=1
+	GLIBC_VERSION_MAX = 2.19
+else ifeq ($(TARGET), kobov5)
+	KOBO=1
+	HAS_KOBOV5_TC:=$(shell command -v arm-kobov5-linux-gnueabihf-gcc 2> /dev/null)
+	ifdef HAS_KOBOV5_TC
+		CHOST?=arm-kobov5-linux-gnueabihf
+	else
+		CHOST?=arm-linux-gnueabihf
+	endif
+	USE_LJ_WPACLIENT=1
+	GLIBC_VERSION_MAX = 2.35
+else ifeq ($(TARGET), ubuntu-touch)
+	CHOST?=arm-linux-gnueabihf
+	SDL=yes
+	UBUNTUTOUCH=1
+else ifeq ($(TARGET), linux)
+	SDL=builtin
+	EMULATE_READER=1
+else ifeq ($(TARGET), macos)
+	SDL=builtin
+	EMULATE_READER=1
+	DARWIN = 1
+else ifeq ($(TARGET), android)
+	ANDROID=1
+	MONOLIBTIC?=1
+	export PATH:=$(ANDROID_TOOLCHAIN)/bin:$(PATH)
+	ifeq ($(ANDROID_ARCH), x86)
+		CHOST?=i686-linux-android$(NDKABI)
+	else ifeq ($(ANDROID_ARCH), x86_64)
+		CHOST?=x86_64-linux-android$(NDKABI)
+	else ifeq ($(ANDROID_ARCH), arm64)
+		CHOST?=aarch64-linux-android$(NDKABI)
+	else
+		CHOST?=armv7a-linux-androideabi$(NDKABI)
+	endif
+	USE_CLANG=1
+else ifeq ($(TARGET), win32)
+	CHOST?=x86_64-w64-mingw32
+	WIN32=1
+	SDL=builtin
+else ifeq ($(TARGET), pocketbook)
+	CHOST?=arm-pocketbook-linux-gnueabi
+	POCKETBOOK=1
+	HAS_POCKETBOOK_TC:=$(shell command -v arm-pocketbook-linux-gnueabi-gcc 2> /dev/null)
+	ifdef HAS_POCKETBOOK_TC
+		CHOST?=arm-pocketbook-linux-gnueabi
+	else
+		CHOST?=arm-linux-gnueabi
+	endif
+	GLIBC_VERSION_MAX = 2.5
+else ifeq ($(TARGET), remarkable)
+	CHOST?=arm-remarkable-linux-gnueabihf
+	REMARKABLE=1
+	USE_LJ_WPACLIENT=1
+else ifeq ($(TARGET), remarkable-aarch64)
+	CHOST?=aarch64-remarkable-linux-gnu
+	REMARKABLE=1
+	USE_LJ_WPACLIENT=1
+else ifeq ($(TARGET), sony-prstux)
+	CHOST?=arm-linux-gnueabihf
+	SONY_PRSTUX=1
+	USE_LJ_WPACLIENT=1
+else ifeq ($(TARGET), cervantes)
+	CERVANTES=1
+	HAS_CERVANTES_TC:=$(shell command -v arm-cervantes-linux-gnueabi-gcc 2> /dev/null)
+	ifdef HAS_CERVANTES_TC
+		CHOST?=arm-cervantes-linux-gnueabi
+	else
+		CHOST?=arm-linux-gnueabi
+	endif
+	USE_LJ_WPACLIENT=1
+else ifndef TARGET
+	# if TARGET is not defined we will build an emulator on current machine
+	EMULATE_READER=1
+	KODEBUG ?= 1
+	SDL=yes
+	ifeq ($(CURRENT_OS), darwin)
+		DARWIN = 1
+	endif
+else
+  $(error Invalid TARGET: "$(TARGET)")
+endif
+
+ifdef DARWIN
+  USE_CLANG = 1
+  export MACOSX_DEPLOYMENT_TARGET := $(or $(MACOSX_DEPLOYMENT_TARGET),$(shell sw_vers -productVersion))
+endif
+
+ifneq ($(CCACHE),)
+  export CCACHE
+  # Rewrite relative paths in the compiler’s
+  # standard error output to absolute paths.
+  export CCACHE_ABSSTDERR = 1
+endif
+
+# NOTE: This is necessary (at least on Android), because some early API levels will not put DT_NEEDED libraries in the global namespace.
+#       Ensuring Lua/C modules have their own DT_NEEDED entry to the shared LuaJIT library works around this quirk (and is otherwise mostly harmless).
+#       Saner APIs behave like Linux, and wouldn't require this hack.
+USE_LUAJIT_LIB = $(or $(DARWIN),$(ANDROID),$(WIN32))
+SKIP_LUAJIT_BIN = $(ANDROID)
+
+RCP := cp -R
+WGET ?= wget --no-verbose
+
+define wget_and_validate
+	$(WGET) -O '$1' '$2' \
+	&& echo '$3 $1' | sha1sum -c - \
+	|| { code=$$?; rm -f '$1'; exit $$code; }
+endef
+
+# ln --symbolic --no-dereference --force --relative
+ifeq ($(CURRENT_OS), darwin)
+  SYMLINK = gln
+else
+  SYMLINK = ln
+endif
+SYMLINK += -snfr
+
+# set cross-compiler/host CC and CXX
+ifneq (,$(USE_CLANG))
+	ifdef CHOST
+		CC:=$(CHOST)-clang
+		CXX:=$(CHOST)-clang++
+	else
+		CC:=clang
+		CXX:=clang++
+	endif
+	HOSTCC:=clang
+	HOSTCXX:=clang++
+	# quiet flag
+	QFLAGS:=-Wno-ignored-optimization-argument -Wno-unknown-warning-option
+	# Tone down some very verbose Clang 5 warnings, too.
+	# This one can be *extremely* verbose
+	QFLAGS+=-Wno-array-bounds
+	# This one checks if -I flags are actually used, even at steps where it makes little sense.
+	# Since we massively pass -I/-L flags ourselves, this becomes insane really quick.
+	QFLAGS+=-Wno-unused-command-line-argument
+	# Let FreeType do its thing...
+	QFLAGS+=-Wno-self-assign
+	# Also extremely verbose...
+	QFLAGS+=-Wno-parentheses-equality
+	# For dropbear's libtom...
+	QFLAGS+=-Wno-macro-redefined
+else
+	ifdef CHOST
+		CC:=$(CHOST)-gcc
+		CXX:=$(CHOST)-g++
+	else
+		CC:=gcc
+		CXX:=g++
+	endif
+	HOSTCC:=gcc
+	HOSTCXX:=g++
+	QFLAGS:=
+endif
+
+# set cross-compiler/host AR LD RANLIB
+ifeq ($(TARGET), android)
+	STRIP:=llvm-strip
+	AR:=llvm-ar
+	LD:=ld
+	NM:=llvm-nm
+	OBJCOPY:=llvm-objcopy
+	RANLIB:=llvm-ranlib
+	READELF:=llvm-readelf
+else ifdef CHOST
+	STRIP:=$(CHOST)-strip
+	AR:=$(CHOST)-ar
+	LD:=$(CHOST)-ld
+	NM:=$(CHOST)-nm
+	OBJCOPY:=$(CHOST)-objcopy
+	RC:=$(CHOST)-windres
+	RANLIB:=$(CHOST)-ranlib
+	READELF:=$(CHOST)-readelf
+else
+	STRIP:=strip
+	AR:=ar
+	LD:=ld
+	NM:=nm
+	OBJCOPY:=objcopy
+	RC:=windres
+	RANLIB:=ranlib
+	READELF:=readelf
+endif
+
+HOSTSTRIP:=strip
+HOSTAR:=ar
+HOSTLD:=ld
+HOSTOBJCOPY:=objcopy
+HOSTRANLIB:=ranlib
+HOSTREADELF:=readelf
+
+# Base CFLAGS, without arch. We'll need it for luajit, because its
+# Makefiles do some tricky stuff to differentiate HOST/TARGET
+BASE_CFLAGS = -O2 -g -pipe -fomit-frame-pointer
+ifneq (,$(USE_CLANG))
+  # For ricers.
+  # BASE_CFLAGS = -O3 -pipe -fomit-frame-pointer
+  # Used to enforce aggressive optimizations in some components
+  VECTO_CFLAGS = -O3 -pipe -fomit-frame-pointer -ftree-vectorize -funroll-loops
+  # LTO build
+  LTO_FLAGS = -flto=thin $(if $(PARALLEL_JOBS),-flto-jobs=$(PARALLEL_JOBS)) -Qunused-arguments
+else
+  # For ricers.
+  # BASE_CFLAGS = -O3 -pipe -fomit-frame-pointer -frename-registers -fweb
+  # Used to enforce aggressive optimizations in some components
+  VECTO_CFLAGS = -O3 -pipe -fomit-frame-pointer -frename-registers -fweb -ftree-vectorize -funroll-loops
+  # LTO build
+  LTO_FLAGS = -flto$(if $(PARALLEL_JOBS),=$(PARALLEL_JOBS)) -fuse-linker-plugin
+endif
+# And for an aggressive LTO build
+# BASE_CFLAGS = $(VECTO_CFLAGS) $(LTO_FLAGS)
+# Use this for debugging:
+ifdef KODEBUG
+  BASE_CFLAGS = -Og -g -pipe -fno-omit-frame-pointer
+  # Don't enforce extra CFLAGS in debug builds
+  VECTO_CFLAGS =
+else
+  BASE_CFLAGS += -DNDEBUG
+endif
+ifdef DARWIN
+  # Work around Apple clang bug: `/usr/local/include` is inserted
+  # at the start of the system include path list, above any other
+  # entries, including `-isystem …` options passed on the command
+  # line (cf. https://stackoverflow.com/a/66377265).
+  BASE_CFLAGS += -idirafter /usr/local/include
+else
+  # Trim down binary size (when combined with linker `--gc-sections`).
+  BASE_CFLAGS += -fdata-sections -ffunction-sections
+endif
+
+# Misc GCC tricks to ensure backward compatibility with the K2,
+# even when using a fairly recent TC (Linaro/MG).
+# NOTE: -mno-unaligned-access is needed for TC based on Linaro 4.6/4.7
+# or GCC 4.7, or weird crap happens on FW 2.x. We unfortunately can't
+# set it by default, since it's a new flag.
+# A possible workaround would be to set the alignment trap to
+# fixup (echo 2 > /proc/cpu/alignment) in the launch script,
+# but that's terribly ugly, and might severly nerf performance...
+# That said, MG 2012.03 is still using GCC 4.6.3, so we're good ;).
+#
+# For ref:
+## no-ssp & killing FORTIFY_SOURCE are for the *_chk private GLIBC symbols [@GLIBC_2.11 & @GLIBC_2.15]
+## no-finite-maths-only is for the *_finite LM symbols (byproduct of using ffast-maths) [@GLIBC_2.15]
+## GNU_SOURCE is a very heavy-handed way of getting rid of the __isoc99_sscanf stuff [@GLIBC_2.7]
+## no-use-cxa-atexit is to get rid of cxa_atexit
+#
+
+MG2K12_COMPAT_CFLAGS:=-fno-stack-protector -U_FORTIFY_SOURCE -D_GNU_SOURCE -fno-finite-math-only
+MG2K12_COMPAT_CXXFLAGS:=-fno-use-cxa-atexit
+# My legacy TC is based on glibc 2.9, that should be enough :).
+NILUJE_COMPAT_CFLAGS:=-fno-stack-protector -U_FORTIFY_SOURCE -D_GNU_SOURCE -mno-unaligned-access
+# As for PB, despite the old TC targeting glibc 2.9, some devices are apparently still running glibc 2.5... (#5939)
+PB_COMPAT_CFLAGS:=-D_GNU_SOURCE
+
+# Same deal, but when targeting the K5/Kobo & using Ubuntu's Linaro TCs
+UBUNTU_COMPAT_CFLAGS:=-fno-finite-math-only -fno-stack-protector -U_FORTIFY_SOURCE
+
+# When we can't avoid pulling in the system's libstdc++ on a platform using GCC < 5.1
+# The potential for actual runtime issues is fairly low, though,
+# c.f., https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html
+STLABI_COMPAT_CFLAGS:=-D_GLIBCXX_USE_CXX11_ABI=0
+
+# ARM 1136JF-S (Legacy Kidle devices [K2/K3/DX/DXG])
+ARMV6_1136_ARCH:=-march=armv6j -mtune=arm1136jf-s -mfpu=vfp -marm
+# Generic armv6
+ARMV6_GENERIC_ARCH:=-march=armv6 -mtune=generic-armv6 -marm
+# Generic armv7
+ARMV7_GENERIC_ARCH:=-march=armv7-a -mtune=generic-armv7-a -mfpu=vfpv3 -mthumb
+# Generic arm 64 bits
+ARM64_GENERIC_ARCH:=-march=armv8-a
+# Cortex A8 (K4, Kindle Touch, PW1, Kobos since the Touch)
+ARMV7_A8_ARCH:=-march=armv7-a -mtune=cortex-a8 -mfpu=neon -mthumb
+# Cortex A9 (e.g., Kindle PW2)
+ARMV7_A9_ARCH:=-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mthumb
+# Cortex A7 (e.g., Kobo Sage & Elipsa)
+ARMV7_A7_ARCH:=-march=armv7-a -mtune=cortex-a7 -mfpu=neon -mthumb
+# Cortex A53 (MTK SoCs on an armv7 software stack)
+ARMV7_A53_ARCH:=-march=armv7-a -mtune=cortex-a53 -mfpu=neon -mthumb
+# Cortex A53 (reMarkable Paper Pro)
+ARM64_A53_ARCH:=-march=armv8-a+crc+crypto -mtune=cortex-a53
+# Mirror the NDK's armeabi-v7a APP_ABI (cf. #201)
+ifeq ($(ANDROID_ARCH), arm)
+	ANDROID_ARM_ARCH:=-march=armv7-a -mfpu=vfpv3-d16
+	ANDROID_ARM_ARCH+=-mthumb
+	# NOTE: NDK15c actually uses -fstack-protector-strong
+	ANDROID_ARM_ARCH+=-funwind-tables -fstack-protector -no-canonical-prefixes
+else ifeq ($(ANDROID_ARCH), arm64)
+	ANDROID_ARM_ARCH:=-funwind-tables -fstack-protector -no-canonical-prefixes
+endif
+
+TARGET_MACHINE := $(shell $(CC) -dumpmachine)
+ifeq (,$(TARGET_MACHINE))
+  ifneq (,$(filter-out distclean fetch%,$(or $(MAKECMDGOALS),all)))
+    $(error failed to retrieve target machine)
+  endif
+endif
+ifdef KODEBUG
+  MACHINE = $(TARGET_MACHINE)-debug
+else
+  MACHINE = $(TARGET_MACHINE)
+endif
+
+# Use target-specific CFLAGS
+ifeq ($(TARGET), kobo)
+	# NOTE: If we only care about Kobos w/ a Touch screen, we're good.
+	TARGET_CFLAGS:=$(ARMV7_A8_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kobov4)
+	TARGET_CFLAGS:=$(ARMV7_A9_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kobov5)
+	TARGET_CFLAGS:=$(ARMV7_A53_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), ubuntu-touch)
+	TARGET_CFLAGS:=$(ARMV7_A8_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+	COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+else ifeq ($(TARGET), pocketbook)
+	# NOTE: The TC itself is built in ARM mode (otherwise glibc 2.9 fails to build).
+	#       We prefer Thumb mode for our own binaries, though, much like on every other i.MX device ;).
+	TARGET_CFLAGS:=$(ARMV7_A8_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+	# NOTE: Because of course everything is terrible, newer FW (5.19+) use GCC 6.3.0's libstdc++,
+	#       so, ideally, we shouldn't be using this on those newer devices...
+	COMPAT_CFLAGS:=$(STLABI_COMPAT_CFLAGS) $(PB_COMPAT_CFLAGS)
+	COMPAT_CXXFLAGS:=$(STLABI_COMPAT_CFLAGS) $(PB_COMPAT_CFLAGS)
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabi)
+		COMPAT_CFLAGS+=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS+=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kindle)
+	TARGET_CFLAGS:=$(ARMV7_A8_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabi)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kindlepw2)
+	TARGET_CFLAGS:=$(ARMV7_A9_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabi)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kindlehf)
+	# While we *would* like to bias towards in-order CPUs (e.g., A7/A53), we can't because we have to support the PW4,
+	# which runs on an A9, and that's VFPv3, and not VFPv4 (and that seems to matter, despite us technically always prefering NEON).
+	TARGET_CFLAGS:=$(ARMV7_A9_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), kindle-legacy)
+	TARGET_CFLAGS:=$(ARMV6_1136_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabi)
+		COMPAT_CFLAGS:=$(MG2K12_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(MG2K12_COMPAT_CXXFLAGS)
+	endif
+	COMPAT_CFLAGS:=$(NILUJE_COMPAT_CFLAGS)
+	# Works around potential deadlocks with local statics in LunaSVG (cxa_guard -> futex)
+	# We're not multi-threaded, so, whatever.
+	# c.f., https://github.com/koreader/koreader/discussions/11246
+        COMPAT_CXXFLAGS+=-fno-threadsafe-statics
+else ifeq ($(TARGET), android)
+	ifeq ($(ANDROID_ARCH), arm)
+		TARGET_CFLAGS:=$(ANDROID_ARM_ARCH)
+		TARGET_CFLAGS+=-mfloat-abi=softfp
+	else ifeq ($(ANDROID_ARCH), arm64)
+		TARGET_CFLAGS:=$(ANDROID_ARM_ARCH)
+	else ifeq ($(ANDROID_ARCH), x86)
+	endif
+	ifneq (,$(filter arm x86,$(ANDROID_ARCH)))
+		# NOTE: to be removed when upgrading the minimal supported API level to 24.
+		# (https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md)
+		export ac_cv_sys_file_offset_bits=32
+		COMPAT_CFLAGS += -U_FILE_OFFSET_BITS -D_FILE_OFFSET_BITS=32
+	endif
+else ifeq ($(TARGET), remarkable)
+	TARGET_CFLAGS:=$(ARMV7_A9_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+else ifeq ($(TARGET), remarkable-aarch64)
+	TARGET_CFLAGS:=$(ARM64_A53_ARCH)
+else ifeq ($(TARGET), sony-prstux)
+	TARGET_CFLAGS:=$(ARMV7_A8_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=hard
+else ifeq ($(TARGET), cervantes)
+	TARGET_CFLAGS:=$(ARMV7_GENERIC_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+	ifeq ($(TARGET_MACHINE), arm-linux-gnueabi)
+		COMPAT_CFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+		COMPAT_CXXFLAGS:=$(UBUNTU_COMPAT_CFLAGS)
+	endif
+else ifeq ($(TARGET), arm-generic)
+	# Defaults to generic crap
+	TARGET_CFLAGS:=$(ARMV6_GENERIC_ARCH)
+	TARGET_CFLAGS+=-mfloat-abi=softfp
+else ifeq ($(TARGET), linux)
+  ifneq (,$(filter arm-%-gnueabihf,$(TARGET_MACHINE)))
+    TARGET_CFLAGS = $(ARMV7_GENERIC_ARCH) -mfloat-abi=hard
+    LINUX_ARCH = armhf
+  else ifneq (,$(filter aarch64-%,$(TARGET_MACHINE)))
+    TARGET_CFLAGS = $(ARM64_GENERIC_ARCH)
+    LINUX_ARCH = arm64
+  else ifneq (,$(filter x86_64-%,$(TARGET_MACHINE)))
+    # We want to run the build on any 64-bit CPU.
+    TARGET_CFLAGS = -march=x86-64 -mtune=generic
+    LINUX_ARCH = x86_64
+  else
+    LINUX_ARCH = $(word 1,$(subst -, ,$(TARGET_MACHINE)))
+  endif
+else ifeq ($(TARGET), macos)
+  ifneq (,$(filter arm64-,$(TARGET_MACHINE)))
+    # At the moment of writing, the Apple M1 is the lowest common denominator.
+    TARGET_CFLAGS = -mcpu=apple-m1
+  else
+    TARGET_CFLAGS = -mtune=generic
+  endif
+else ifdef EMULATE_READER
+  TARGET_CFLAGS = -march=native
+endif
+
+# Some of our deps require C11 & C++17 (`if constexpr (…)`) support.
+# NOTE: Technically, this also means we require GCC >= 7.1 (2017) or Clang >= 5.0.0 (2017),
+hashsign := \#
+hasminstd = $(shell printf '%s\n' '$(hashsign)if $3 >= $4L' 'yes' '$(hashsign)else' 'no' '$(hashsign)endif' '$3' | $1 -x $2 -P -E -)
+ifneq (yes,$(firstword $(call hasminstd,$(CC),c,__STDC_VERSION__,201100)))
+	CSTD_FLAGS := -std=gnu11
+endif
+ifneq (yes,$(firstword $(call hasminstd,$(CXX),c++,__cplusplus,201700)))
+	CXXSTD_FLAGS := -std=gnu++17
+endif
+
+# Improve reproducibility.
+BASE_CFLAGS += -ffile-prefix-map=$(abspath $(KOR_BASE))/=
+
+CFLAGS:=$(BASE_CFLAGS) $(QFLAGS) $(CSTD_FLAGS)
+CXXFLAGS:=$(BASE_CFLAGS) $(QFLAGS) $(CXXSTD_FLAGS)
+HOSTCFLAGS:=$(BASE_CFLAGS) $(QFLAGS)
+
+ifndef DARWIN
+  LDFLAGS := -Wl,-O1,--as-needed,--gc-sections $(COMPAT_LDFLAGS)
+  # To prefer our shipped libraries over the system's,
+  # we set a couple rpath via an include file to make sure it goes through buildsystem indirection unscathed...
+  # NOTE: We enforce DT_RPATH over DT_RUNPATH because DT_RUNPATH is *not* honored for *transitive* dependencies,
+  #       which can lead to hilarious catastrophe if such a dependency pulls a SONAME identical to something we ship,
+  #       because it will *not* load ours, but still let ours be loaded after that...
+  #       (Assuming no LD_LIBRARY_PATH are set, since the search order is basically RPATH -> LD_LIBRARY_PATH -> RUNPATH).
+  #       c.f., https://github.com/koreader/koreader-base/pull/1638#issuecomment-1636725691
+  #       And https://bugs.launchpad.net/ubuntu/+source/eglibc/+bug/1253638/comments/5 for a nice recap.
+  ifneq ($(TARGET), android)
+    LDFLAGS += -Wl,@$(abspath $(KOR_BASE)/origin.ldflags)
+  endif
+  # In monolibtic mode on Android, we can statically link the STL.
+  ifeq ($(TARGET), android)
+    LDFLAGS += $(if $(MONOLIBTIC),-static-libstdc++)
+  endif
+else
+  LDFLAGS := -Wl,-rpath,@executable_path/libs,-rpath,@executable_path/../koreader/libs
+endif
+
+# NOTE: Follow the NDK's lead
+ifeq ($(TARGET), android)
+	LDFLAGS+=-no-canonical-prefixes
+	ifeq ($(ANDROID_ARCH), arm)
+		# FIXME: `--Wl,--fix-cortex-a8` still needed?
+		LDFLAGS+=-Wl,--fix-cortex-a8 -march=armv7-a
+	endif
+endif
+
+ifeq ($(TARGET), win32)
+	LDFLAGS+=-Wl,--allow-multiple-definition -static-libgcc
+endif
+
+# this will create a path named build/arm-none-linux-gnueabi or similar
+OUTPUT_DIR ?= $(KOR_BASE)/build/$(MACHINE)
+CMAKE_DIR = $(OUTPUT_DIR)/cmake
+STAGING_DIR = $(OUTPUT_DIR)/staging
+SPEC_ROCKS_DIR = $(OUTPUT_DIR)/spec/rocks
+
+BUILD_ENTRYPOINT = $(CMAKE_DIR)/build.ninja
+
+# you can configure an emulation for the (eink) framebuffer here.
+# the application won't use the framebuffer (and the special e-ink ioctls)
+# in that case.
+
+ifdef EMULATE_READER
+	# Regular
+	REALCC:=$(HOSTCC)
+	REALCXX:=$(HOSTCXX)
+	HOSTCC:=$(strip $(CCACHE) $(HOSTCC))
+	HOSTCXX:=$(strip $(CCACHE) $(HOSTCXX))
+	CC:=$(HOSTCC)
+	CXX:=$(HOSTCXX)
+	STRIP:=$(HOSTSTRIP)
+	AR:=$(HOSTAR)
+	LD:=$(HOSTLD)
+	OBJCOPY:=$(HOSTOBJCOPY)
+	RANLIB:=$(HOSTRANLIB)
+	READELF:=$(HOSTREADELF)
+	CFLAGS+=$(TARGET_CFLAGS)
+	CXXFLAGS+=$(TARGET_CFLAGS)
+	export PKG_CONFIG_LIBDIR := $(abspath $(STAGING_DIR)/lib/pkgconfig)$(if $(PKG_CONFIG_LIBDIR),:$(PKG_CONFIG_LIBDIR))
+else
+	REALCC:=$(CC)
+	REALCXX:=$(CXX)
+	CC:=$(strip $(CCACHE) $(CC))
+	CXX:=$(strip $(CCACHE) $(CXX))
+	CFLAGS+=$(TARGET_CFLAGS) $(COMPAT_CFLAGS)
+	CXXFLAGS+=$(TARGET_CFLAGS) $(COMPAT_CXXFLAGS)
+	# Make sure we always have mmap() support.
+	# This is critical for FreeType, since the usage of platform-specific code depends on this,
+	# and without it, we don't get CLOEXEC handling, which is problematic on Kobos, where we spawn stuff that might
+	# survive us, and if they inherit some of our fds pointing to the removable user area, bad things happen when it
+	# gets unmounted for USBMS handling....
+	export ac_cv_func_mmap_fixed_mapped=yes
+	# Never let pkg-config pickup native libraries (we don't actually rely on pkg-config anywhere, we do it all by hand).
+	# NOTE: Let people shoot themselves in the foot with custom pkg-config wrappers?
+	#undefine PKG_CONFIG
+	#unexport PKG_CONFIG
+	export PKG_CONFIG_LIBDIR := $(abspath $(STAGING_DIR)/lib/pkgconfig)
+	export PKG_CONFIG_PATH :=
+	# Nix the NixOS override, just to be sure.
+	export PKG_CONFIG_PATH_FOR_TARGET :=
+endif
+
+# not necessary to use PIC flag for win32 which has relocation table in dll
+ifneq ($(TARGET), win32)
+	CFLAGS+=-fPIC
+	CXXFLAGS+=-fPIC
+endif
+
+# Improve reproducibility.
+ifndef DARWIN
+LDFLAGS += -Wl,--build-id=none
+endif
+
+CFLAGS := $(strip $(CFLAGS))
+CXXFLAGS := $(strip $(CXXFLAGS))
+LDFLAGS := $(strip $(LDFLAGS))
+
+# NOTE: We generally want SIMD/ASM juicy stuff everywhere
+WANT_SIMD=1
+# ... but on ARM targets that are not NEON capable, that obviously won't fly...
+ifneq (,$(filter -march=arm%,$(CFLAGS)))
+  # We're on ARM.
+  ifeq (,$(filter -march=armv8-a -mfpu=neon,$(CFLAGS)))
+    # We don't support NEON.
+    WANT_SIMD=
+  endif
+endif
+# ... ditto on Android x86, because the TC is old as hell, and that upsets libjpeg-turbo...
+ifeq ($(TARGET), android)
+  ifeq ($(ANDROID_ARCH), x86)
+    WANT_SIMD=
+  endif
+endif
+
+ifdef DARWIN
+  LIB_EXT = .dylib
+else ifdef WIN32
+  LIB_EXT = .dll
+else
+  LIB_EXT = .so
+endif
+
+# you can probably leave these settings alone:
+
+THIRDPARTY_DIR = $(KOR_BASE)/thirdparty
+
+LUAROCKS_BINARY := $(abspath $(STAGING_DIR)/bin/luarocks)
+
+# Dynamic libraries must be compiled with "-shared" and "-fPIC".
+# (And we enforce PIC everywhere via CFLAGS/CXXFLAGS).
+DYNLIB_LDFLAGS = -shared
+ifdef DARWIN
+  DYNLIB_LDFLAGS += -dynamiclib -undefined dynamic_lookup
+endif
+
+# CMake toolchain file. {{{
+
+CMAKE_TCF = $(CMAKE_DIR)/toolchain.cmake
+CMAKE_FLAGS += -DCMAKE_TOOLCHAIN_FILE='$(abspath $(CMAKE_TCF))'
+
+# Native & cross definitions.
+define cmake_toolchain
+
+cmake_minimum_required(VERSION 3.17.5)
+
+# CMake Cross ToolChain config file. Adapted from Debian's dpkg-cross ;).
+# c.f., https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling-toolchain
+# NOTE: Remember that CMake is a special snowflake that completely *ignores* CPPFLAGS,
+# because of course it does...
+# (https://gitlab.kitware.com/cmake/cmake/issues/12928)
+
+# Build type.
+set(CMAKE_BUILD_TYPE $(if $(KODEBUG),Debug,Release))
+set(CMAKE_DEBUG_POSTFIX "")
+
+# Disable run time path handling (we have our own).
+# And no, just using `set(CMAKE_SKIP_RPATH TRUE)`
+# does not work: we end up with empty RPATH entries
+# in some cases (e.g. with libwebp).
+set(CMAKE_INSTALL_RPATH "")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+
+# C language.
+$(if $(CCACHE),set(CMAKE_C_COMPILER_LAUNCHER $(CCACHE)))
+set(CMAKE_C_COMPILER $(REALCC))
+set(CMAKE_C_FLAGS_INIT "$(strip $(CFLAGS))")
+
+# C++ language.
+$(if $(CCACHE),set(CMAKE_CXX_COMPILER_LAUNCHER $(CCACHE)))
+set(CMAKE_CXX_COMPILER $(REALCXX))
+set(CMAKE_CXX_FLAGS_INIT "$(strip $(CXXFLAGS))")
+
+# OBJC language (for SDL3 on macOS).
+$(if $(CCACHE),set(CMAKE_OBJC_COMPILER_LAUNCHER $(CCACHE)))
+set(CMAKE_OBJC_COMPILER $(REALCC))
+
+# Release only flags: prevent CMake from messing
+# with our custom optimization level and flags.
+set(CMAKE_C_FLAGS_RELEASE "")
+set(CMAKE_CXX_FLAGS_RELEASE "")
+
+# Linker.
+set(CMAKE_EXE_LINKER_FLAGS_INIT "$(strip $(LDFLAGS))")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "$(strip $(filter-out -shared -dynamiclib,$(LDFLAGS) $(DYNLIB_LDFLAGS)))")
+set(CMAKE_MODULE_LINKER_FLAGS_INIT $${CMAKE_SHARED_LINKER_FLAGS_INIT})
+
+# Tools.
+set(CMAKE_AR $(AR) CACHE FILEPATH "Archive")
+set(CMAKE_LD $(LD) CACHE FILEPATH "LD")
+set(CMAKE_NM $(NM) CACHE FILEPATH "NM")
+set(CMAKE_RANLIB $(RANLIB) CACHE FILEPATH "RanLib")
+set(CMAKE_READELF $(READELF) CACHE FILEPATH "ReadELF")
+$(if $(WIN32),set(CMAKE_RC_COMPILER $(RC) CACHE FILEPATH "Resource Compiler"))
+set(CMAKE_STRIP true CACHE FILEPATH "Strip")
+
+# Set path(s) to search for libraries/binaries/headers.
+set(CMAKE_FIND_ROOT_PATH $(abspath $(STAGING_DIR)))
+set(CMAKE_PREFIX_PATH $${CMAKE_FIND_ROOT_PATH})
+# So we don't include an outdated `png.h` provided by one of macOS' frameworks.
+set(CMAKE_FIND_FRAMEWORK LAST)
+
+# Install directories.
+set(CMAKE_INSTALL_PREFIX $(abspath $(STAGING_DIR)) CACHE FILEPATH "install prefix")
+set(CMAKE_INSTALL_BINDIR     bin     CACHE FILEPATH "install directory: binaries")
+set(CMAKE_INSTALL_INCLUDEDIR include CACHE FILEPATH "install directory: includes")
+set(CMAKE_INSTALL_LIBDIR     lib     CACHE FILEPATH "install directory: libraries")
+
+set(APPLE $(DARWIN))
+set(LINUX $(if $(DARWIN)$(WIN32),,1))
+set(WIN32 $(WIN32))
+
+endef
+
+# Cross-compile only definitions.
+
+ifndef EMULATE_READER
+
+# CMAKE_SYSTEM_PROCESSOR
+# FIXME: use more fine grained values for ARM targets?
+# (Cf. https://github.com/taka-no-me/android-cmake)
+ifneq (,$(filter aarch64-%,$(TARGET_MACHINE)))
+  CMAKE_SYSTEM_PROCESSOR = aarch64
+else ifneq (,$(filter arm-% armv7a-%,$(TARGET_MACHINE)))
+  CMAKE_SYSTEM_PROCESSOR = arm
+else ifneq (,$(filter i686-%,$(TARGET_MACHINE)))
+  CMAKE_SYSTEM_PROCESSOR = i686
+else ifneq (,$(filter x86_64-%,$(TARGET_MACHINE)))
+  CMAKE_SYSTEM_PROCESSOR = x86_64
+else
+  $(error CMAKE_SYSTEM_PROCESSOR not set! (TARGET_MACHINE is $(TARGET_MACHINE)))
+endif
+
+define cmake_cross_toolchain
+
+$(cmake_toolchain)
+
+# OS.
+# NOTE: use Linux for Android too (cf. https://github.com/taka-no-me/android-cmake and
+# https://android.googlesource.com/platform/ndk/+/master/build/cmake/android.toolchain.cmake)
+# In the meantime, I'll be sitting in the corner, crying hysterically.
+set(CMAKE_SYSTEM_NAME $(if $(DARWIN),Darwin,$(if $(WIN32),Windows,Linux)))
+
+# Magical value that inhibits all of CMake's own NDK handling code. (Or shit goes boom.)
+$(if $(ANDROID),set(CMAKE_SYSTEM_VERSION 1))
+# Also disable versioning of shared objects.
+$(if $(ANDROID),set(CMAKE_PLATFORM_NO_VERSIONED_SONAME TRUE))
+
+# Target architecture.
+set(CMAKE_SYSTEM_PROCESSOR $(CMAKE_SYSTEM_PROCESSOR))
+
+# Search for programs in the build host directories.
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+# For libraries and headers in the target directories.
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+# As well as for CMake packages too.
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+endef
+
+endif
+
+# }}}
+
+# KOReader variables: for forwarding definitions to CMake. {{{
+
+CMAKE_KOVARS = $(CMAKE_DIR)/koreader_vars.cmake
+CMAKE_FLAGS += -DCMAKE_KOVARS='$(abspath $(CMAKE_KOVARS))'
+
+define cmake_koreader_vars
+
+set(BASE_CFLAGS    "$(strip $(BASE_CFLAGS))")
+set(CCACHE         "$(strip $(CCACHE))")
+set(CHOST          $(CHOST))
+set(EMULATE_READER $(EMULATE_READER))
+set(HOSTCC         "$(strip $(HOSTCC))")
+set(HOSTCFLAGS     "$(strip $(HOSTCFLAGS))")
+set(HOSTCXX        "$(strip $(HOSTCXX))")
+set(LIB_EXT        $(LIB_EXT))
+set(VECTO_CFLAGS   "$(VECTO_CFLAGS)")
+
+set(BASE_DIR       $(abspath $(KOR_BASE)))
+set(OUTPUT_DIR     $(abspath $(OUTPUT_DIR)))
+set(STAGING_DIR    $(abspath $(STAGING_DIR)))
+set(SPEC_ROCKS_DIR $(abspath $(SPEC_ROCKS_DIR)))
+set(THIRDPARTY_DIR $(abspath $(THIRDPARTY_DIR)))
+
+set(MAKE $(MAKE))
+set(NINJA $(NINJA))
+
+list(PREPEND CMAKE_MODULE_PATH $${THIRDPARTY_DIR}/cmake_modules)
+
+# Convenience autotools-like variables.
+set(CC             "$(strip $(CC))")
+set(CFLAGS         "$(strip $(CFLAGS))")
+set(CXX            "$(strip $(CXX))")
+set(CXXFLAGS       "$(strip $(CXXFLAGS))")
+set(LD             "$(strip $(LD))")
+set(LDFLAGS        "$(strip $(LDFLAGS))")
+set(DYNLIB_LDFLAGS "$(strip $(LDFLAGS) $(DYNLIB_LDFLAGS))")
+set(AR             "$(strip $(AR))")
+set(NM             "$(strip $(NM))")
+set(OBJCOPY        "$(strip $(OBJCOPY))")
+set(RANLIB         "$(strip $(RANLIB))")
+set(RC             "$(strip $(RC))")
+set(STRIP          "$(strip $(STRIP))")
+
+# Meson.
+set(MESON_TOOLCHAINS --native-file=$(abspath $(MESON_HOST_TOOLCHAIN)) $(if $(filter-out $(MESON_HOST_TOOLCHAIN),$(MESON_CROSS_TOOLCHAIN)),--cross-file=$(abspath $(MESON_CROSS_TOOLCHAIN))))
+set(MESON_FILE_ARG $(if $(filter-out $(MESON_HOST_TOOLCHAIN),$(MESON_CROSS_TOOLCHAIN)),--cross-file,--native-file))
+
+# Miscellaneous.
+set(MONOLIBTIC         $(MONOLIBTIC))
+set(USE_LJ_WPACLIENT   $(USE_LJ_WPACLIENT))
+set(USE_SDL            $(SDL))
+set(WANT_SIMD          $(WANT_SIMD))
+set(GLIBC_VERSION_MAX  $(GLIBC_VERSION_MAX))
+
+# Platform flags.
+set(ANDROID        $(ANDROID))
+set(CERVANTES      $(CERVANTES))
+set(KINDLE         $(KINDLE))
+set(KOBO           $(KOBO))
+set(LEGACY         $(LEGACY))
+set(POCKETBOOK     $(POCKETBOOK))
+set(REMARKABLE     $(REMARKABLE))
+set(SONY_PRSTUX    $(SONY_PRSTUX))
+
+set(SKIP_LUAJIT_BIN $(SKIP_LUAJIT_BIN))
+set(USE_LUAJIT_LIB  $(USE_LUAJIT_LIB))
+
+set(ANDROID_LAUNCHER_DIR "$(abspath $(or $(ANDROID_LAUNCHER_DIR),../platform/android/luajit-launcher))")
+
+endef
+
+# }}}
+
+# Meson toolchain file(s). {{{
+
+comma:=,
+
+define meson_toolchain
+
+[constants]
+CCACHE = $(if $(CCACHE),'$(CCACHE)','env')
+CPPFLAGS = ['-I$(abspath $(STAGING_DIR)/include)']
+CFLAGS = []
+CXXFLAGS = []
+LDFLAGS = ['-L$(abspath $(STAGING_DIR)/lib)']
+
+[binaries]
+c = [CCACHE, '$(strip $(REALCC))']
+# c_ld
+cpp = [CCACHE, '$(strip $(REALCXX))']
+# cpp_ld
+ar = '$(strip $(AR))'
+nm = '$(strip $(NM))'
+pkgconfig = 'pkg-config'
+pkg-config = 'pkg-config'
+ranlib = '$(strip $(RANLIB))'
+strip = 'true'
+
+[built-in options]
+buildtype = '$(if $(KODEBUG),debug,release)'
+c_args = [$(patsubst %,'%'$(comma),$(CFLAGS))] + CPPFLAGS + CFLAGS
+c_link_args = [$(patsubst %,'%'$(comma),$(LDFLAGS))] + LDFLAGS
+cpp_args = [$(patsubst %,'%'$(comma),$(CXXFLAGS))] + CPPFLAGS + CXXFLAGS
+cpp_link_args = [$(patsubst %,'%'$(comma),$(LDFLAGS))] + LDFLAGS
+
+endef
+
+ifdef EMULATE_READER
+
+MESON_CROSS_TOOLCHAIN = $(CMAKE_DIR)/meson_toolchain.ini
+MESON_HOST_TOOLCHAIN = $(CMAKE_DIR)/meson_toolchain.ini
+
+else
+
+MESON_CROSS_TOOLCHAIN = $(CMAKE_DIR)/meson_cross_toolchain.ini
+MESON_HOST_TOOLCHAIN = $(CMAKE_DIR)/meson_host_toolchain.ini
+
+MESON_CROSS_SYSTEM = $(if $(ANDROID),android,linux)
+ifneq (,$(filter aarch64-%,$(TARGET_MACHINE)))
+  MESON_CROSS_CPU_FAMILY = aarch64
+else ifneq (,$(filter arm-% armv7a-%,$(TARGET_MACHINE)))
+  MESON_CROSS_CPU_FAMILY = arm
+else ifneq (,$(filter i686-%,$(TARGET_MACHINE)))
+  MESON_CROSS_CPU_FAMILY = x86
+else ifneq (,$(filter x86_64-%,$(TARGET_MACHINE)))
+  MESON_CROSS_CPU_FAMILY = x86_64
+else
+  $(error MESON_CROSS_CPU_FAMILY not set! (TARGET_MACHINE is $(TARGET_MACHINE)))
+endif
+MESON_CROSS_CPU = $(or $(patsubst -march=%,%,$(filter -march=%,$(CFLAGS))),$(MESON_CROSS_CPU_FAMILY))
+MESON_CROSS_ENDIAN = little
+
+define meson_cross_toolchain
+$(meson_toolchain)
+
+[host_machine]
+system = '$(MESON_CROSS_SYSTEM)'
+cpu_family = '$(MESON_CROSS_CPU_FAMILY)'
+cpu = '$(MESON_CROSS_CPU)'
+endian = '$(MESON_CROSS_ENDIAN)'
+endef
+
+define meson_host_toolchain
+
+[constants]
+CCACHE = $(if $(CCACHE),'$(CCACHE)','env')
+
+[binaries]
+c = [CCACHE, '$(strip $(HOSTCC))']
+# c_ld
+cpp = [CCACHE, '$(strip $(HOSTCXX))']
+# cpp_ld
+ar = '$(strip $(HOSTSTRIP))'
+ranlib = '$(strip $(HOSTRANLIB))'
+strip = 'true'
+
+[built-in options]
+buildtype = '$(if $(KODEBUG),debug,release)'
+c_args = [$(patsubst %,'%'$(comma),$(HOSTCFLAGS))]
+cpp_args = [$(patsubst %,'%'$(comma),$(HOSTCFLAGS))]
+
+endef
+
+endif
+
+# }}}
+
+# Testing support. {{{
+
+ifneq (,$(EMULATE_READER))
+
+define runtests_fn
+runtests() {(
+kodir="$$1";
+shift 1;
+"$$kodir/spec/runtests" $(PARALLEL_JOBS:%=-j%) "$$@";
+)}
+endef
+
+RUNTESTS = $(strip $(runtests_fn)); runtests
+
+endif
+
+# }}}
+
+# vim: foldmethod=marker foldlevel=0

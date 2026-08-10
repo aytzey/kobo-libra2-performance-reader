@@ -1,0 +1,225 @@
+local Device = require("device")
+
+local order = {
+    ["KOMenu:menu_buttons"] = {
+        "filemanager_settings",
+        "setting",
+        "main",
+        "plus_menu",
+    },
+    filemanager_settings = {
+        "show_filter",
+        "sort_by",
+        "reverse_sorting",
+        "----------------------------",
+        "filemanager_display_mode",
+        "filebrowser_settings",
+        "----------------------------",
+        "sort_mixed",
+        "start_with",
+    },
+    setting = {
+        -- common settings
+        -- those that don't exist will simply be skipped during menu gen
+        "frontlight", -- if Device:hasFrontlight()
+        "night_mode",
+        "----------------------------",
+        "screen",
+        "----------------------------",
+        "taps_and_gestures",
+        "navigation",
+        -- end common settings
+    },
+    document = {
+        "document_metadata_location",
+        "document_metadata_location_move",
+        "document_auto_save",
+        "document_end_action",
+        "language_support",
+    },
+    device = {
+        "keyboard_layout",
+        "external_keyboard",
+        "font_ui_fallbacks",
+        "----------------------------",
+        "time",
+        "units",
+        "device_status_alarm",
+        "charging_led", -- if Device:canToggleChargingLED()
+        "autostandby",
+        "autosuspend",
+        "autoshutdown",
+        "pageturn_power", -- if Device:isKobo() and Device:hasKeys()
+        "ignore_sleepcover",
+        "ignore_open_sleepcover",
+        "cover_events",
+        "ignore_battery_optimizations",
+        "mass_storage_settings", -- if Device:canToggleMassStorage()
+        "file_ext_assoc",
+        "screenshot",
+    },
+    navigation = {
+        "back_to_exit",
+        "back_in_filemanager",
+        "back_in_reader",
+        "backspace_as_back",
+        "----------------------------",
+        "physical_buttons_setup",
+        "----------------------------",
+        "android_volume_keys",
+        "android_haptic_feedback",
+        "android_back_button",
+        "----------------------------",
+        "opening_page_location_stack",
+        "skim_dialog_position",
+    },
+    network = {
+        "network_wifi",
+        "network_proxy",
+        "network_powersave",
+        "network_restore",
+        "network_info",
+        "network_before_wifi_action",
+        "network_after_wifi_action",
+        "network_dismiss_scan",
+        "----------------------------",
+        "ssh",
+    },
+    screen = {
+        "screensaver",
+        "autodim",
+        "----------------------------",
+        "screen_rotation",
+        "----------------------------",
+        "screen_dpi",
+        "screen_eink_opt",
+        "autowarmth",
+        "color_rendering",
+        "----------------------------",
+        "screen_timeout",
+        "fullscreen",
+        "----------------------------",
+        "screen_notification",
+    },
+    taps_and_gestures = {
+        "gesture_manager",
+        "gesture_overview",
+        "gesture_intervals",
+        "----------------------------",
+        "ignore_hold_corners",
+        "screen_disable_double_tap",
+        "----------------------------",
+        "menu_activate",
+    },
+    tools = {
+        "profiles",
+        "cloud_storage",
+        "exporter",
+        "move_to_archive",
+        "text_editor",
+        "----------------------------",
+        "opds",
+        "read_timer",
+        "calibre",
+        "statistics",
+        "wallabag",
+        "news_downloader",
+        "qrclipboard",
+    },
+    more_tools = {
+        "favorites",
+        "collections",
+        "bookmark_browser",
+        "----------------------------",
+        "profiles",
+        "cloud_storage",
+        "exporter",
+        "move_to_archive",
+        "text_editor",
+        "----------------------------",
+        "opds",
+        "read_timer",
+        "calibre",
+        "statistics",
+        "wallabag",
+        "news_downloader",
+        "qrclipboard",
+        "----------------------------",
+        "auto_frontlight",
+        "battery_statistics",
+        "book_shortcuts",
+        "synchronize_time",
+        "keep_alive",
+        "doc_setting_tweak",
+        "terminal",
+        "----------------------------",
+        "network",
+        "document",
+        "language",
+        "device",
+        "----------------------------",
+        "mass_storage_actions", -- if Device:canToggleMassStorage()
+        "ota_update", -- if Device:hasOTAUpdates()
+        "help",
+        "----------------------------",
+        "plugin_management",
+        "patch_management",
+        "advanced_settings",
+        "developer_options",
+    },
+    search = {
+        "file_search",
+        "file_search_results",
+        "find_book_in_calibre_catalog",
+    },
+    search_settings = {
+    },
+    main = {
+        "open_last_document",
+        "history",
+        "----------------------------",
+        "search",
+        "more_tools",
+        "----------------------------",
+        "exit_menu",
+    },
+    help = {
+        "quickstart_guide",
+        "----------------------------",
+        "search_menu",
+        "----------------------------",
+        "report_bug",
+        "----------------------------",
+        "system_statistics", -- if enabled (Plugin)
+        "version",
+        "about",
+    },
+    plus_menu = {},
+    exit_menu = {
+        "restart_koreader", -- if Device:canRestart()
+        "----------------------------",
+        "sleep", -- if Device:canSuspend()
+        "poweroff", -- if Device:canPowerOff()
+        "reboot", -- if Device:canReboot()
+        "----------------------------",
+        "start_bq", -- if Device:isCervantes()
+        "exit",
+    }
+}
+
+order["KOMenu:disabled"] = {
+    "tools",
+    "dictionary_lookup",
+    "dictionary_lookup_history",
+    "dictionary_settings",
+    "search_settings",
+    "vocabbuilder",
+    "wikipedia_lookup",
+    "wikipedia_history",
+    "wikipedia_settings",
+}
+
+if not Device:hasExitOptions() then
+    order.exit_menu = nil
+end
+return order

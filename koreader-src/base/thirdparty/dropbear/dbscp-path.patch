@@ -1,0 +1,22 @@
+diff --git a/src/svr-chansession.c b/src/svr-chansession.c
+index 11205f3..c5578fe 100644
+--- a/src/svr-chansession.c
++++ b/src/svr-chansession.c
+@@ -682,6 +682,17 @@ static int sessioncommand(struct Channel *channel, struct ChanSess *chansess,
+ 				TRACE(("leave sessioncommand, command too long %d", cmdlen))
+ 				return DROPBEAR_FAILURE;
+ 			}
++
++#ifdef DBSCP_PATH
++			// HACK. This is terrible. Truly, truly awful.
++			if (strncmp(chansess->cmd, "scp", 3) == 0) {
++				char* mangled_cmd = m_malloc(cmdlen + sizeof(DBSCP_PATH));
++				snprintf(mangled_cmd, cmdlen + sizeof(DBSCP_PATH) + 1, "%s/%s", DBSCP_PATH, chansess->cmd);
++				m_free(chansess->cmd);
++				chansess->cmd = m_strdup(mangled_cmd);
++				m_free(mangled_cmd);
++			}
++#endif
+ 		}
+ 		if (issubsys) {
+ #if DROPBEAR_SFTPSERVER

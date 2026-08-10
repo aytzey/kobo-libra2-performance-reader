@@ -1,0 +1,11 @@
+<p>KOReader to czytnik e-booków zoptymalizowany pod kątem ekranów e-ink. Może otwierać wiele formatów i zapewnia zaawansowane dostosowania tekstu.</p>
+<p>Poniżej znajdziesz wybór jego wielu funkcji:</p>
+<ul>
+  <li>Obsługuje zarówno formaty stron stałych (PDF, DjVu, CBT, CBZ), jak i formaty e-booków z możliwością zmieniania układu (EPUB, FB2, Mobi, DOC, CHM, TXT, HTML). W zeskanowanych dokumentach PDF&#47;DjVu można zmieniać układ. Specjalne kierunki układu dotyczące czytania dwukolumnowych plików PDF i mangi.</li>
+  <li>Wielojęzyczny interfejs użytkownika zoptymalizowany pod kątem ekranów e-ink. Wysoce konfigurowalny widok czytnika z pełnymi opcjami składu. W zestawie znajdują się wielojęzyczne słowniki dzielenia wyrazów.</li>
+  <li>Obsługa pism innych niż łaciński dla książek, w tym języków: hebrajskiego, arabskiego, perskiego, rosyjskiego, chińskiego, japońskiego i koreańskiego.</li>
+  <li>Unikalne funkcje mapy książki i przeglądarki stron umożliwiające nawigację po książce.</li>
+  <li>Specjalny tryb zaznaczania wielu stron z licznymi opcjami eksportu lokalnego i online.</li>
+  <li>Może synchronizować postęp czytania na wszystkich urządzeniach z KOReaderem.</li>
+  <li>Zintegrowany z Calibre, Wallabag, Wikipedią, Tłumaczem Google i innymi dostawcami treści.</li>
+</ul>

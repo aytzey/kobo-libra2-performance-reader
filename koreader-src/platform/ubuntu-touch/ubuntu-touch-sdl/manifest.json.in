@@ -1,0 +1,15 @@
+{
+    "architecture": "@CLICK_ARCH@",
+    "description": "An SDL2 demo application for Ubuntu Touch",
+    "framework": "ubuntu-sdk-14.10",
+    "hooks": {
+        "ubuntu-touch-sdl-template": {
+            "apparmor": "ubuntu-touch-sdl-template.apparmor",
+            "desktop": "ubuntu-touch-sdl-template.desktop"
+        }
+    },
+    "maintainer": "Simon Raffeiner <sturmflut@lieberbiber.de>",
+    "name": "ubuntu-touch-sdl-template.sturmflut",
+    "title": "ubuntu-touch-sdl-template",
+    "version": "0.5"
+}

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- only used by application stores, to filter the app on unsupported devices -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
+
+    <!-- common android permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- These are used on API30+ -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <application
+        android:name=".MainApp"
+        android:icon="@mipmap/icon"
+        android:banner="@mipmap/banner"
+        android:label="${APP_NAME}"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"
+        android:supportsRtl="true">
+        <meta-data android:name="android.max_aspect" android:value="3.1" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/SplashScreen"
+            android:resizeableActivity="false"
+            android:screenOrientation="nosensor"
+            android:launchMode="singleInstance"
+            android:configChanges="colorMode|density|fontScale|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
+            tools:ignore="NonResizeableActivity">
+            <meta-data android:name="android.app.lib_name" android:value="luajit-launcher" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/fb2" />
+                <data android:mimeType="application/fb3" />
+                <data android:mimeType="application/msword" />
+                <data android:mimeType="application/oxps" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/rtf" />
+                <data android:mimeType="application/tcr" />
+                <data android:mimeType="application/vnd.amazon.mobi8-ebook" />
+                <data android:mimeType="application/vnd.comicbook-rar" />
+                <data android:mimeType="application/vnd.rar" />
+                <data android:mimeType="application/vnd.comicbook+tar" />
+                <data android:mimeType="application/vnd.comicbook+zip" />
+                <data android:mimeType="application/vnd.ms-htmlhelp" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/vnd.palm" />
+                <data android:mimeType="application/x-cbz" />
+                <data android:mimeType="application/x-chm" />
+                <data android:mimeType="application/x-fb2" />
+                <data android:mimeType="application/x-fb3" />
+                <data android:mimeType="application/x-mobipocket-ebook" />
+                <data android:mimeType="application/x-tar" />
+                <data android:mimeType="application/xhtml+xml" />
+                <data android:mimeType="application/xml" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="image/djvu" />
+                <data android:mimeType="image/gif" />
+                <data android:mimeType="image/jp2" />
+                <data android:mimeType="image/jpeg" />
+                <data android:mimeType="image/jxr" />
+                <data android:mimeType="image/png" />
+                <data android:mimeType="image/svg+xml" />
+                <data android:mimeType="image/tiff" />
+                <data android:mimeType="image/vnd.djvu" />
+                <data android:mimeType="image/vnd.ms-photo" />
+                <data android:mimeType="image/x-djvu" />
+                <data android:mimeType="image/x-portable-arbitrarymap" />
+                <data android:mimeType="image/x-portable-bitmap" />
+                <data android:mimeType="text/html" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+
+                <data android:pathPattern=".*\\.epub" />
+                <data android:pathPattern=".*\\.fb2" />
+                <data android:pathPattern=".*\\.fb2.zip" />
+                <data android:pathPattern=".*\\.doc" />
+                <data android:pathPattern=".*\\.docx" />
+                <data android:pathPattern=".*\\.xps" />
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\.rtf" />
+                <data android:pathPattern=".*\\.mobi" />
+                <data android:pathPattern=".*\\.cbr" />
+                <data android:pathPattern=".*\\.cbt" />
+                <data android:pathPattern=".*\\.cbz" />
+                <data android:pathPattern=".*\\.odt" />
+                <data android:pathPattern=".*\\.chm" />
+                <data android:pathPattern=".*\\.tar" />
+                <data android:pathPattern=".*\\.xml" />
+                <data android:pathPattern=".*\\.htm" />
+                <data android:pathPattern=".*\\.html" />
+                <data android:pathPattern=".*\\.zip" />
+                <data android:pathPattern=".*\\.djvu" />
+                <data android:pathPattern=".*\\.gif" />
+                <data android:pathPattern=".*\\.jpeg" />
+                <data android:pathPattern=".*\\.png" />
+                <data android:pathPattern=".*\\.svg" />
+                <data android:pathPattern=".*\\.tiff" />
+                <data android:pathPattern=".*\\.md" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:label="CrashReport"
+            android:theme="@style/NoTitle"
+            android:name=".CrashReportActivity"
+            android:exported="false">
+        </activity>
+        <activity
+            android:label="Test"
+            android:theme="@style/Theme.AppCompat.Light"
+            android:name=".TestActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+    </application>
+</manifest>

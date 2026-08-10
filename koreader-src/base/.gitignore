@@ -1,0 +1,17 @@
+.DS_*
+._*
+*.gz
+*.swp
+*.swo
+cscope.*
+*.orig
+tags
+
+/.cproject
+/.project
+
+/toolchain/android-ndk-r*
+/toolchain/android-sdk-linux
+/build
+
+/thirdparty/**/build

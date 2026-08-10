@@ -1,0 +1,68 @@
+name: CI
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  linux:
+
+    name: Static linting
+    runs-on: ubuntu-24.04
+    env:
+      CLICOLOR_FORCE: "1"
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+          clean: false
+          show-progress: false
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 'latest'
+        # No cache, there are complaints about lockfiles that we don't want otherwise. See <https://github.com/actions/setup-node/issues/928>.
+        # cache: 'npm'
+
+    - name: Install prerequisites
+      run: |
+        set -ex
+        packages=(
+          clang-tidy
+          cppcheck
+          jq
+          libfreetype-dev
+          libfribidi-dev
+          libharfbuzz-dev
+          libjpeg-turbo8-dev
+          libpng-dev
+          libunibreak-dev
+          libutf8proc-dev
+          libwebp-dev
+          libxml2-utils
+          libxxhash-dev
+          libzstd-dev
+        )
+        sudo apt-get update && sudo apt-get install --no-install-recommends "${packages[@]}"
+        # We need a more recent version of libunibreak for `lb_get_char_class` support.
+        wget http://mirrors.kernel.org/ubuntu/pool/universe/libu/libunibreak/libunibreak{6,-dev}_6.1-2_amd64.deb
+        sudo dpkg -i *.deb
+        # Install stylelint.
+        npm init --yes
+        npm install @csstools/stylelint-formatter-github stylelint stylelint-config-standard
+
+    - name: Setup problem matchers
+      run: |
+        set -x
+        echo '::remove-matcher owner=eslint-compact::'
+        echo '::remove-matcher owner=eslint-stylish::'
+        echo '::remove-matcher owner=tsc::'
+        echo '::add-matcher::.github/problem-matchers.json'
+
+    - name: Lint
+      run: ./utils/lint.sh 2>&1

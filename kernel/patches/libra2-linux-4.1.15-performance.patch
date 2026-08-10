@@ -1,0 +1,1346 @@
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/bootp/init.S b/arch/arm/boot/bootp/init.S
+--- a/arch/arm/boot/bootp/init.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/boot/bootp/init.S	2026-07-04 03:50:42.770789805 +0300
+@@ -16,7 +16,7 @@
+  *  size immediately following the kernel, we could build this into
+  *  a binary blob, and concatenate the zImage using the cat command.
+  */
+-		.section .start,#alloc,#execinstr
++		.section .start, "ax"
+ 		.type	_start, #function
+ 		.globl	_start
+ 
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/ashldi3.S b/arch/arm/boot/compressed/ashldi3.S
+--- a/arch/arm/boot/compressed/ashldi3.S	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/boot/compressed/ashldi3.S	2026-07-04 04:02:37.422368711 +0300
+@@ -0,0 +1,54 @@
++/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004, 2005
++   Free Software Foundation, Inc.
++
++This file is free software; you can redistribute it and/or modify it
++under the terms of the GNU General Public License as published by the
++Free Software Foundation; either version 2, or (at your option) any
++later version.
++
++In addition to the permissions in the GNU General Public License, the
++Free Software Foundation gives you unlimited permission to link the
++compiled version of this file into combinations with other programs,
++and to distribute those combinations without any restriction coming
++from the use of this file.  (The General Public License restrictions
++do apply in other respects; for example, they cover modification of
++the file, and distribution when not linked into a combine
++executable.)
++
++This file is distributed in the hope that it will be useful, but
++WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; see the file COPYING.  If not, write to
++the Free Software Foundation, 51 Franklin Street, Fifth Floor,
++Boston, MA 02110-1301, USA.  */
++
++
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++
++#ifdef __ARMEB__
++#define al r1
++#define ah r0
++#else
++#define al r0
++#define ah r1
++#endif
++
++ENTRY(__ashldi3)
++ENTRY(__aeabi_llsl)
++
++	subs	r3, r2, #32
++	rsb	ip, r2, #32
++	movmi	ah, ah, lsl r2
++	movpl	ah, al, lsl r3
++ ARM(	orrmi	ah, ah, al, lsr ip	)
++ THUMB(	lsrmi	r3, al, ip		)
++ THUMB(	orrmi	ah, ah, r3		)
++	mov	al, al, lsl r2
++	ret	lr
++
++ENDPROC(__ashldi3)
++ENDPROC(__aeabi_llsl)
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/big-endian.S b/arch/arm/boot/compressed/big-endian.S
+--- a/arch/arm/boot/compressed/big-endian.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/boot/compressed/big-endian.S	2026-07-04 03:50:42.769129541 +0300
+@@ -5,7 +5,7 @@
+  *  Author: Nicolas Pitre
+  */
+ 
+-	.section ".start", #alloc, #execinstr
++	.section ".start", "ax"
+ 
+ 	mrc	p15, 0, r0, c1, c0, 0	@ read control reg
+ 	orr	r0, r0, #(1 << 7)	@ enable big endian mode
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/bswapsdi2.S b/arch/arm/boot/compressed/bswapsdi2.S
+--- a/arch/arm/boot/compressed/bswapsdi2.S	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/boot/compressed/bswapsdi2.S	2026-07-04 04:02:37.426352017 +0300
+@@ -0,0 +1,37 @@
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++
++#if __LINUX_ARM_ARCH__ >= 6
++ENTRY(__bswapsi2)
++	rev r0, r0
++	bx lr
++ENDPROC(__bswapsi2)
++
++ENTRY(__bswapdi2)
++	rev r3, r0
++	rev r0, r1
++	mov r1, r3
++	bx lr
++ENDPROC(__bswapdi2)
++#else
++ENTRY(__bswapsi2)
++	eor r3, r0, r0, ror #16
++	mov r3, r3, lsr #8
++	bic r3, r3, #0xff00
++	eor r0, r3, r0, ror #8
++	ret lr
++ENDPROC(__bswapsi2)
++
++ENTRY(__bswapdi2)
++	mov ip, r1
++	eor r3, ip, ip, ror #16
++	eor r1, r0, r0, ror #16
++	mov r1, r1, lsr #8
++	mov r3, r3, lsr #8
++	bic r3, r3, #0xff00
++	bic r1, r1, #0xff00
++	eor r1, r1, r0, ror #8
++	eor r0, r3, ip, ror #8
++	ret lr
++ENDPROC(__bswapdi2)
++#endif
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+--- a/arch/arm/boot/compressed/head.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/boot/compressed/head.S	2026-07-04 03:50:42.769755640 +0300
+@@ -112,7 +112,7 @@
+ #endif
+ 		.endm
+ 
+-		.section ".start", #alloc, #execinstr
++		.section ".start", "ax"
+ /*
+  * sort out different calling conventions
+  */
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/hyp-stub.S b/arch/arm/boot/compressed/hyp-stub.S
+--- a/arch/arm/boot/compressed/hyp-stub.S	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/boot/compressed/hyp-stub.S	2026-07-04 04:02:37.415611414 +0300
+@@ -0,0 +1,222 @@
++/*
++ * Copyright (c) 2012 Linaro Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <linux/init.h>
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++#include <asm/virt.h>
++
++#ifndef ZIMAGE
++/*
++ * For the kernel proper, we need to find out the CPU boot mode long after
++ * boot, so we need to store it in a writable variable.
++ *
++ * This is not in .bss, because we set it sufficiently early that the boot-time
++ * zeroing of .bss would clobber it.
++ */
++.data
++ENTRY(__boot_cpu_mode)
++	.long	0
++.text
++
++	/*
++	 * Save the primary CPU boot mode. Requires 3 scratch registers.
++	 */
++	.macro	store_primary_cpu_mode	reg1, reg2, reg3
++	mrs	\reg1, cpsr
++	and	\reg1, \reg1, #MODE_MASK
++	adr	\reg2, .L__boot_cpu_mode_offset
++	ldr	\reg3, [\reg2]
++	str	\reg1, [\reg2, \reg3]
++	.endm
++
++	/*
++	 * Compare the current mode with the one saved on the primary CPU.
++	 * If they don't match, record that fact. The Z bit indicates
++	 * if there's a match or not.
++	 * Requires 3 additionnal scratch registers.
++	 */
++	.macro	compare_cpu_mode_with_primary mode, reg1, reg2, reg3
++	adr	\reg2, .L__boot_cpu_mode_offset
++	ldr	\reg3, [\reg2]
++	ldr	\reg1, [\reg2, \reg3]
++	cmp	\mode, \reg1		@ matches primary CPU boot mode?
++	orrne	\reg1, \reg1, #BOOT_CPU_MODE_MISMATCH
++	strne	\reg1, [\reg2, \reg3]	@ record what happened and give up
++	.endm
++
++#else	/* ZIMAGE */
++
++	.macro	store_primary_cpu_mode	reg1:req, reg2:req, reg3:req
++	.endm
++
++/*
++ * The zImage loader only runs on one CPU, so we don't bother with mult-CPU
++ * consistency checking:
++ */
++	.macro	compare_cpu_mode_with_primary mode, reg1, reg2, reg3
++	cmp	\mode, \mode
++	.endm
++
++#endif /* ZIMAGE */
++
++/*
++ * Hypervisor stub installation functions.
++ *
++ * These must be called with the MMU and D-cache off.
++ * They are not ABI compliant and are only intended to be called from the kernel
++ * entry points in head.S.
++ */
++@ Call this from the primary CPU
++ENTRY(__hyp_stub_install)
++	store_primary_cpu_mode	r4, r5, r6
++ENDPROC(__hyp_stub_install)
++
++	@ fall through...
++
++@ Secondary CPUs should call here
++ENTRY(__hyp_stub_install_secondary)
++	mrs	r4, cpsr
++	and	r4, r4, #MODE_MASK
++
++	/*
++	 * If the secondary has booted with a different mode, give up
++	 * immediately.
++	 */
++	compare_cpu_mode_with_primary	r4, r5, r6, r7
++	retne	lr
++
++	/*
++	 * Once we have given up on one CPU, we do not try to install the
++	 * stub hypervisor on the remaining ones: because the saved boot mode
++	 * is modified, it can't compare equal to the CPSR mode field any
++	 * more.
++	 *
++	 * Otherwise...
++	 */
++
++	cmp	r4, #HYP_MODE
++	retne	lr			@ give up if the CPU is not in HYP mode
++
++/*
++ * Configure HSCTLR to set correct exception endianness/instruction set
++ * state etc.
++ * Turn off all traps
++ * Eventually, CPU-specific code might be needed -- assume not for now
++ *
++ * This code relies on the "eret" instruction to synchronize the
++ * various coprocessor accesses. This is done when we switch to SVC
++ * (see safe_svcmode_maskall).
++ */
++	@ Now install the hypervisor stub:
++	adr	r7, __hyp_stub_vectors
++	mcr	p15, 4, r7, c12, c0, 0	@ set hypervisor vector base (HVBAR)
++
++	@ Disable all traps, so we don't get any nasty surprise
++	mov	r7, #0
++	mcr	p15, 4, r7, c1, c1, 0	@ HCR
++	mcr	p15, 4, r7, c1, c1, 2	@ HCPTR
++	mcr	p15, 4, r7, c1, c1, 3	@ HSTR
++
++THUMB(	orr	r7, #(1 << 30)	)	@ HSCTLR.TE
++ARM_BE8(orr	r7, r7, #(1 << 25))     @ HSCTLR.EE
++	mcr	p15, 4, r7, c1, c0, 0	@ HSCTLR
++
++	mrc	p15, 4, r7, c1, c1, 1	@ HDCR
++	and	r7, #0x1f		@ Preserve HPMN
++	mcr	p15, 4, r7, c1, c1, 1	@ HDCR
++
++#if !defined(ZIMAGE) && defined(CONFIG_ARM_ARCH_TIMER)
++	@ make CNTP_* and CNTPCT accessible from PL1
++	mrc	p15, 0, r7, c0, c1, 1	@ ID_PFR1
++	lsr	r7, #16
++	and	r7, #0xf
++	cmp	r7, #1
++	bne	1f
++	mrc	p15, 4, r7, c14, c1, 0	@ CNTHCTL
++	orr	r7, r7, #3		@ PL1PCEN | PL1PCTEN
++	mcr	p15, 4, r7, c14, c1, 0	@ CNTHCTL
++	mov	r7, #0
++	mcrr	p15, 4, r7, r7, c14	@ CNTVOFF
++
++	@ Disable virtual timer in case it was counting
++	mrc	p15, 0, r7, c14, c3, 1	@ CNTV_CTL
++	bic	r7, #1			@ Clear ENABLE
++	mcr	p15, 0, r7, c14, c3, 1	@ CNTV_CTL
++1:
++#endif
++
++	bx	lr			@ The boot CPU mode is left in r4.
++ENDPROC(__hyp_stub_install_secondary)
++
++__hyp_stub_do_trap:
++	cmp	r0, #-1
++	mrceq	p15, 4, r0, c12, c0, 0	@ get HVBAR
++	mcrne	p15, 4, r0, c12, c0, 0	@ set HVBAR
++	__ERET
++ENDPROC(__hyp_stub_do_trap)
++
++/*
++ * __hyp_set_vectors: Call this after boot to set the initial hypervisor
++ * vectors as part of hypervisor installation.  On an SMP system, this should
++ * be called on each CPU.
++ *
++ * r0 must be the physical address of the new vector table (which must lie in
++ * the bottom 4GB of physical address space.
++ *
++ * r0 must be 32-byte aligned.
++ *
++ * Before calling this, you must check that the stub hypervisor is installed
++ * everywhere, by waiting for any secondary CPUs to be brought up and then
++ * checking that BOOT_CPU_MODE_HAVE_HYP(__boot_cpu_mode) is true.
++ *
++ * If not, there is a pre-existing hypervisor, some CPUs failed to boot, or
++ * something else went wrong... in such cases, trying to install a new
++ * hypervisor is unlikely to work as desired.
++ *
++ * When you call into your shiny new hypervisor, sp_hyp will contain junk,
++ * so you will need to set that to something sensible at the new hypervisor's
++ * initialisation entry point.
++ */
++ENTRY(__hyp_get_vectors)
++	mov	r0, #-1
++ENDPROC(__hyp_get_vectors)
++	@ fall through
++ENTRY(__hyp_set_vectors)
++	__HVC(0)
++	ret	lr
++ENDPROC(__hyp_set_vectors)
++
++#ifndef ZIMAGE
++.align 2
++.L__boot_cpu_mode_offset:
++	.long	__boot_cpu_mode - .
++#endif
++
++.align 5
++__hyp_stub_vectors:
++__hyp_stub_reset:	W(b)	.
++__hyp_stub_und:		W(b)	.
++__hyp_stub_svc:		W(b)	.
++__hyp_stub_pabort:	W(b)	.
++__hyp_stub_dabort:	W(b)	.
++__hyp_stub_trap:	W(b)	__hyp_stub_do_trap
++__hyp_stub_irq:		W(b)	.
++__hyp_stub_fiq:		W(b)	.
++ENDPROC(__hyp_stub_vectors)
++
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/boot/compressed/lib1funcs.S b/arch/arm/boot/compressed/lib1funcs.S
+--- a/arch/arm/boot/compressed/lib1funcs.S	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/boot/compressed/lib1funcs.S	2026-07-04 04:02:37.418351860 +0300
+@@ -0,0 +1,363 @@
++/*
++ * linux/arch/arm/lib/lib1funcs.S: Optimized ARM division routines
++ *
++ * Author: Nicolas Pitre <nico@fluxnic.net>
++ *   - contributed to gcc-3.4 on Sep 30, 2003
++ *   - adapted for the Linux kernel on Oct 2, 2003
++ */
++
++/* Copyright 1995, 1996, 1998, 1999, 2000, 2003 Free Software Foundation, Inc.
++
++This file is free software; you can redistribute it and/or modify it
++under the terms of the GNU General Public License as published by the
++Free Software Foundation; either version 2, or (at your option) any
++later version.
++
++In addition to the permissions in the GNU General Public License, the
++Free Software Foundation gives you unlimited permission to link the
++compiled version of this file into combinations with other programs,
++and to distribute those combinations without any restriction coming
++from the use of this file.  (The General Public License restrictions
++do apply in other respects; for example, they cover modification of
++the file, and distribution when not linked into a combine
++executable.)
++
++This file is distributed in the hope that it will be useful, but
++WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; see the file COPYING.  If not, write to
++the Free Software Foundation, 59 Temple Place - Suite 330,
++Boston, MA 02111-1307, USA.  */
++
++
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++#include <asm/unwind.h>
++
++.macro ARM_DIV_BODY dividend, divisor, result, curbit
++
++#if __LINUX_ARM_ARCH__ >= 5
++
++	clz	\curbit, \divisor
++	clz	\result, \dividend
++	sub	\result, \curbit, \result
++	mov	\curbit, #1
++	mov	\divisor, \divisor, lsl \result
++	mov	\curbit, \curbit, lsl \result
++	mov	\result, #0
++	
++#else
++
++	@ Initially shift the divisor left 3 bits if possible,
++	@ set curbit accordingly.  This allows for curbit to be located
++	@ at the left end of each 4 bit nibbles in the division loop
++	@ to save one loop in most cases.
++	tst	\divisor, #0xe0000000
++	moveq	\divisor, \divisor, lsl #3
++	moveq	\curbit, #8
++	movne	\curbit, #1
++
++	@ Unless the divisor is very big, shift it up in multiples of
++	@ four bits, since this is the amount of unwinding in the main
++	@ division loop.  Continue shifting until the divisor is 
++	@ larger than the dividend.
++1:	cmp	\divisor, #0x10000000
++	cmplo	\divisor, \dividend
++	movlo	\divisor, \divisor, lsl #4
++	movlo	\curbit, \curbit, lsl #4
++	blo	1b
++
++	@ For very big divisors, we must shift it a bit at a time, or
++	@ we will be in danger of overflowing.
++1:	cmp	\divisor, #0x80000000
++	cmplo	\divisor, \dividend
++	movlo	\divisor, \divisor, lsl #1
++	movlo	\curbit, \curbit, lsl #1
++	blo	1b
++
++	mov	\result, #0
++
++#endif
++
++	@ Division loop
++1:	cmp	\dividend, \divisor
++	subhs	\dividend, \dividend, \divisor
++	orrhs	\result,   \result,   \curbit
++	cmp	\dividend, \divisor,  lsr #1
++	subhs	\dividend, \dividend, \divisor, lsr #1
++	orrhs	\result,   \result,   \curbit,  lsr #1
++	cmp	\dividend, \divisor,  lsr #2
++	subhs	\dividend, \dividend, \divisor, lsr #2
++	orrhs	\result,   \result,   \curbit,  lsr #2
++	cmp	\dividend, \divisor,  lsr #3
++	subhs	\dividend, \dividend, \divisor, lsr #3
++	orrhs	\result,   \result,   \curbit,  lsr #3
++	cmp	\dividend, #0			@ Early termination?
++	movnes	\curbit,   \curbit,  lsr #4	@ No, any more bits to do?
++	movne	\divisor,  \divisor, lsr #4
++	bne	1b
++
++.endm
++
++
++.macro ARM_DIV2_ORDER divisor, order
++
++#if __LINUX_ARM_ARCH__ >= 5
++
++	clz	\order, \divisor
++	rsb	\order, \order, #31
++
++#else
++
++	cmp	\divisor, #(1 << 16)
++	movhs	\divisor, \divisor, lsr #16
++	movhs	\order, #16
++	movlo	\order, #0
++
++	cmp	\divisor, #(1 << 8)
++	movhs	\divisor, \divisor, lsr #8
++	addhs	\order, \order, #8
++
++	cmp	\divisor, #(1 << 4)
++	movhs	\divisor, \divisor, lsr #4
++	addhs	\order, \order, #4
++
++	cmp	\divisor, #(1 << 2)
++	addhi	\order, \order, #3
++	addls	\order, \order, \divisor, lsr #1
++
++#endif
++
++.endm
++
++
++.macro ARM_MOD_BODY dividend, divisor, order, spare
++
++#if __LINUX_ARM_ARCH__ >= 5
++
++	clz	\order, \divisor
++	clz	\spare, \dividend
++	sub	\order, \order, \spare
++	mov	\divisor, \divisor, lsl \order
++
++#else
++
++	mov	\order, #0
++
++	@ Unless the divisor is very big, shift it up in multiples of
++	@ four bits, since this is the amount of unwinding in the main
++	@ division loop.  Continue shifting until the divisor is 
++	@ larger than the dividend.
++1:	cmp	\divisor, #0x10000000
++	cmplo	\divisor, \dividend
++	movlo	\divisor, \divisor, lsl #4
++	addlo	\order, \order, #4
++	blo	1b
++
++	@ For very big divisors, we must shift it a bit at a time, or
++	@ we will be in danger of overflowing.
++1:	cmp	\divisor, #0x80000000
++	cmplo	\divisor, \dividend
++	movlo	\divisor, \divisor, lsl #1
++	addlo	\order, \order, #1
++	blo	1b
++
++#endif
++
++	@ Perform all needed substractions to keep only the reminder.
++	@ Do comparisons in batch of 4 first.
++	subs	\order, \order, #3		@ yes, 3 is intended here
++	blt	2f
++
++1:	cmp	\dividend, \divisor
++	subhs	\dividend, \dividend, \divisor
++	cmp	\dividend, \divisor,  lsr #1
++	subhs	\dividend, \dividend, \divisor, lsr #1
++	cmp	\dividend, \divisor,  lsr #2
++	subhs	\dividend, \dividend, \divisor, lsr #2
++	cmp	\dividend, \divisor,  lsr #3
++	subhs	\dividend, \dividend, \divisor, lsr #3
++	cmp	\dividend, #1
++	mov	\divisor, \divisor, lsr #4
++	subges	\order, \order, #4
++	bge	1b
++
++	tst	\order, #3
++	teqne	\dividend, #0
++	beq	5f
++
++	@ Either 1, 2 or 3 comparison/substractions are left.
++2:	cmn	\order, #2
++	blt	4f
++	beq	3f
++	cmp	\dividend, \divisor
++	subhs	\dividend, \dividend, \divisor
++	mov	\divisor,  \divisor,  lsr #1
++3:	cmp	\dividend, \divisor
++	subhs	\dividend, \dividend, \divisor
++	mov	\divisor,  \divisor,  lsr #1
++4:	cmp	\dividend, \divisor
++	subhs	\dividend, \dividend, \divisor
++5:
++.endm
++
++
++ENTRY(__udivsi3)
++ENTRY(__aeabi_uidiv)
++UNWIND(.fnstart)
++
++	subs	r2, r1, #1
++	reteq	lr
++	bcc	Ldiv0
++	cmp	r0, r1
++	bls	11f
++	tst	r1, r2
++	beq	12f
++
++	ARM_DIV_BODY r0, r1, r2, r3
++
++	mov	r0, r2
++	ret	lr
++
++11:	moveq	r0, #1
++	movne	r0, #0
++	ret	lr
++
++12:	ARM_DIV2_ORDER r1, r2
++
++	mov	r0, r0, lsr r2
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__udivsi3)
++ENDPROC(__aeabi_uidiv)
++
++ENTRY(__umodsi3)
++UNWIND(.fnstart)
++
++	subs	r2, r1, #1			@ compare divisor with 1
++	bcc	Ldiv0
++	cmpne	r0, r1				@ compare dividend with divisor
++	moveq   r0, #0
++	tsthi	r1, r2				@ see if divisor is power of 2
++	andeq	r0, r0, r2
++	retls	lr
++
++	ARM_MOD_BODY r0, r1, r2, r3
++
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__umodsi3)
++
++ENTRY(__divsi3)
++ENTRY(__aeabi_idiv)
++UNWIND(.fnstart)
++
++	cmp	r1, #0
++	eor	ip, r0, r1			@ save the sign of the result.
++	beq	Ldiv0
++	rsbmi	r1, r1, #0			@ loops below use unsigned.
++	subs	r2, r1, #1			@ division by 1 or -1 ?
++	beq	10f
++	movs	r3, r0
++	rsbmi	r3, r0, #0			@ positive dividend value
++	cmp	r3, r1
++	bls	11f
++	tst	r1, r2				@ divisor is power of 2 ?
++	beq	12f
++
++	ARM_DIV_BODY r3, r1, r0, r2
++
++	cmp	ip, #0
++	rsbmi	r0, r0, #0
++	ret	lr
++
++10:	teq	ip, r0				@ same sign ?
++	rsbmi	r0, r0, #0
++	ret	lr
++
++11:	movlo	r0, #0
++	moveq	r0, ip, asr #31
++	orreq	r0, r0, #1
++	ret	lr
++
++12:	ARM_DIV2_ORDER r1, r2
++
++	cmp	ip, #0
++	mov	r0, r3, lsr r2
++	rsbmi	r0, r0, #0
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__divsi3)
++ENDPROC(__aeabi_idiv)
++
++ENTRY(__modsi3)
++UNWIND(.fnstart)
++
++	cmp	r1, #0
++	beq	Ldiv0
++	rsbmi	r1, r1, #0			@ loops below use unsigned.
++	movs	ip, r0				@ preserve sign of dividend
++	rsbmi	r0, r0, #0			@ if negative make positive
++	subs	r2, r1, #1			@ compare divisor with 1
++	cmpne	r0, r1				@ compare dividend with divisor
++	moveq	r0, #0
++	tsthi	r1, r2				@ see if divisor is power of 2
++	andeq	r0, r0, r2
++	bls	10f
++
++	ARM_MOD_BODY r0, r1, r2, r3
++
++10:	cmp	ip, #0
++	rsbmi	r0, r0, #0
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__modsi3)
++
++#ifdef CONFIG_AEABI
++
++ENTRY(__aeabi_uidivmod)
++UNWIND(.fnstart)
++UNWIND(.save {r0, r1, ip, lr}	)
++
++	stmfd	sp!, {r0, r1, ip, lr}
++	bl	__aeabi_uidiv
++	ldmfd	sp!, {r1, r2, ip, lr}
++	mul	r3, r0, r2
++	sub	r1, r1, r3
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__aeabi_uidivmod)
++
++ENTRY(__aeabi_idivmod)
++UNWIND(.fnstart)
++UNWIND(.save {r0, r1, ip, lr}	)
++	stmfd	sp!, {r0, r1, ip, lr}
++	bl	__aeabi_idiv
++	ldmfd	sp!, {r1, r2, ip, lr}
++	mul	r3, r0, r2
++	sub	r1, r1, r3
++	ret	lr
++
++UNWIND(.fnend)
++ENDPROC(__aeabi_idivmod)
++
++#endif
++
++Ldiv0:
++UNWIND(.fnstart)
++UNWIND(.pad #4)
++UNWIND(.save {lr})
++	str	lr, [sp, #-8]!
++	bl	__div0
++	mov	r0, #0			@ About as wrong as it could be.
++	ldr	pc, [sp], #8
++UNWIND(.fnend)
++ENDPROC(Ldiv0)
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/configs/imx_v7_ntx_defconfig b/arch/arm/configs/imx_v7_ntx_defconfig
+--- a/arch/arm/configs/imx_v7_ntx_defconfig	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/configs/imx_v7_ntx_defconfig	2026-07-04 03:46:51.067935950 +0300
+@@ -247,10 +247,10 @@
+ CONFIG_IOSCHED_NOOP=y
+ CONFIG_IOSCHED_DEADLINE=y
+ CONFIG_IOSCHED_CFQ=y
+-# CONFIG_DEFAULT_DEADLINE is not set
+-CONFIG_DEFAULT_CFQ=y
++CONFIG_DEFAULT_DEADLINE=y
++# CONFIG_DEFAULT_CFQ is not set
+ # CONFIG_DEFAULT_NOOP is not set
+-CONFIG_DEFAULT_IOSCHED="cfq"
++CONFIG_DEFAULT_IOSCHED="deadline"
+ CONFIG_UNINLINE_SPIN_UNLOCK=y
+ CONFIG_ARCH_SUPPORTS_ATOMIC_RMW=y
+ CONFIG_MUTEX_SPIN_ON_OWNER=y
+@@ -540,12 +540,12 @@
+ CONFIG_CPU_FREQ_GOV_COMMON=y
+ CONFIG_CPU_FREQ_STAT=y
+ # CONFIG_CPU_FREQ_STAT_DETAILS is not set
+-CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y
++# CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_USERSPACE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE is not set
+-# CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE is not set
++CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE=y
+ CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_USERSPACE=y
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/include/asm/uaccess.h b/arch/arm/include/asm/uaccess.h
+--- a/arch/arm/include/asm/uaccess.h	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/include/asm/uaccess.h	2026-07-04 03:55:22.212417639 +0300
+@@ -220,7 +220,7 @@
+ 	({								\
+ 		unsigned long __limit = current_thread_info()->addr_limit - 1; \
+ 		const typeof(*(p)) __user *__tmp_p = (p);		\
+-		register const typeof(*(p)) __r2 asm("r2") = (x);	\
++		register typeof(*(p)) __r2 asm("r2") = (x);		\
+ 		register const typeof(*(p)) __user *__p asm("r0") = __tmp_p; \
+ 		register unsigned long __l asm("r1") = __limit;		\
+ 		register int __e asm("r0");				\
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm1020.S b/arch/arm/mm/proc-arm1020.S
+--- a/arch/arm/mm/proc-arm1020.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm1020.S	2026-07-04 03:50:42.778556223 +0300
+@@ -505,7 +505,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm1020_proc_info,#object
+ __arm1020_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm1020e.S b/arch/arm/mm/proc-arm1020e.S
+--- a/arch/arm/mm/proc-arm1020e.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm1020e.S	2026-07-04 03:50:42.778008582 +0300
+@@ -463,7 +463,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm1020e_proc_info,#object
+ __arm1020e_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm1022.S b/arch/arm/mm/proc-arm1022.S
+--- a/arch/arm/mm/proc-arm1022.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm1022.S	2026-07-04 03:50:42.775655291 +0300
+@@ -448,7 +448,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm1022_proc_info,#object
+ __arm1022_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm1026.S b/arch/arm/mm/proc-arm1026.S
+--- a/arch/arm/mm/proc-arm1026.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm1026.S	2026-07-04 03:50:42.777411818 +0300
+@@ -442,7 +442,7 @@
+ 	string	cpu_arm1026_name, "ARM1026EJ-S"
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm1026_proc_info,#object
+ __arm1026_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm720.S b/arch/arm/mm/proc-arm720.S
+--- a/arch/arm/mm/proc-arm720.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm720.S	2026-07-04 03:50:42.776284025 +0300
+@@ -186,7 +186,7 @@
+  * See <asm/procinfo.h> for a definition of this structure.
+  */
+ 	
+-		.section ".proc.info.init", #alloc
++		.section ".proc.info.init", "a"
+ 
+ .macro arm720_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req, cpu_flush:req
+ 		.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm740.S b/arch/arm/mm/proc-arm740.S
+--- a/arch/arm/mm/proc-arm740.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm740.S	2026-07-04 03:50:42.774738709 +0300
+@@ -132,7 +132,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 	.type	__arm740_proc_info,#object
+ __arm740_proc_info:
+ 	.long	0x41807400
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm7tdmi.S b/arch/arm/mm/proc-arm7tdmi.S
+--- a/arch/arm/mm/proc-arm7tdmi.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm7tdmi.S	2026-07-04 03:50:42.778884266 +0300
+@@ -76,7 +76,7 @@
+ 
+ 		.align
+ 
+-		.section ".proc.info.init", #alloc
++		.section ".proc.info.init", "a"
+ 
+ .macro arm7tdmi_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req, \
+ 	extra_hwcaps=0
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm920.S b/arch/arm/mm/proc-arm920.S
+--- a/arch/arm/mm/proc-arm920.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm920.S	2026-07-04 03:50:42.779020335 +0300
+@@ -448,7 +448,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm920_proc_info,#object
+ __arm920_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm922.S b/arch/arm/mm/proc-arm922.S
+--- a/arch/arm/mm/proc-arm922.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm922.S	2026-07-04 03:50:42.773676741 +0300
+@@ -426,7 +426,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm922_proc_info,#object
+ __arm922_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm925.S b/arch/arm/mm/proc-arm925.S
+--- a/arch/arm/mm/proc-arm925.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm925.S	2026-07-04 03:50:42.775957605 +0300
+@@ -491,7 +491,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ .macro arm925_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req, cache
+ 	.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm926.S b/arch/arm/mm/proc-arm926.S
+--- a/arch/arm/mm/proc-arm926.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm926.S	2026-07-04 03:50:42.775323109 +0300
+@@ -474,7 +474,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm926_proc_info,#object
+ __arm926_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm940.S b/arch/arm/mm/proc-arm940.S
+--- a/arch/arm/mm/proc-arm940.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm940.S	2026-07-04 03:50:42.771235723 +0300
+@@ -344,7 +344,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__arm940_proc_info,#object
+ __arm940_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm946.S b/arch/arm/mm/proc-arm946.S
+--- a/arch/arm/mm/proc-arm946.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm946.S	2026-07-04 03:50:42.772069878 +0300
+@@ -399,7 +399,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 	.type	__arm946_proc_info,#object
+ __arm946_proc_info:
+ 	.long	0x41009460
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-arm9tdmi.S b/arch/arm/mm/proc-arm9tdmi.S
+--- a/arch/arm/mm/proc-arm9tdmi.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-arm9tdmi.S	2026-07-04 03:50:42.774429702 +0300
+@@ -70,7 +70,7 @@
+ 
+ 		.align
+ 
+-		.section ".proc.info.init", #alloc
++		.section ".proc.info.init", "a"
+ 
+ .macro arm9tdmi_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req
+ 		.type	__\name\()_proc_info, #object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-fa526.S b/arch/arm/mm/proc-fa526.S
+--- a/arch/arm/mm/proc-fa526.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-fa526.S	2026-07-04 03:50:42.771674336 +0300
+@@ -190,7 +190,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__fa526_proc_info,#object
+ __fa526_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-feroceon.S b/arch/arm/mm/proc-feroceon.S
+--- a/arch/arm/mm/proc-feroceon.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-feroceon.S	2026-07-04 03:50:42.773078965 +0300
+@@ -584,7 +584,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ .macro feroceon_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req, cache:req
+ 	.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-mohawk.S b/arch/arm/mm/proc-mohawk.S
+--- a/arch/arm/mm/proc-mohawk.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-mohawk.S	2026-07-04 03:50:42.776737066 +0300
+@@ -427,7 +427,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__88sv331x_proc_info,#object
+ __88sv331x_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-sa110.S b/arch/arm/mm/proc-sa110.S
+--- a/arch/arm/mm/proc-sa110.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-sa110.S	2026-07-04 03:50:42.776518300 +0300
+@@ -199,7 +199,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	.type	__sa110_proc_info,#object
+ __sa110_proc_info:
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-sa1100.S b/arch/arm/mm/proc-sa1100.S
+--- a/arch/arm/mm/proc-sa1100.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-sa1100.S	2026-07-04 03:50:42.778313892 +0300
+@@ -242,7 +242,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ .macro sa1100_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req
+ 	.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-v6.S b/arch/arm/mm/proc-v6.S
+--- a/arch/arm/mm/proc-v6.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-v6.S	2026-07-04 03:50:42.777709734 +0300
+@@ -264,7 +264,7 @@
+ 	string	cpu_elf_name, "v6"
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	/*
+ 	 * Match any ARMv6 processor core.
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-v7.S b/arch/arm/mm/proc-v7.S
+--- a/arch/arm/mm/proc-v7.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-v7.S	2026-07-04 03:50:42.777036205 +0300
+@@ -484,7 +484,7 @@
+ 	string	cpu_elf_name, "v7"
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	/*
+ 	 * Standard v7 proc info content
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-v7m.S b/arch/arm/mm/proc-v7m.S
+--- a/arch/arm/mm/proc-v7m.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-v7m.S	2026-07-04 03:50:42.774123099 +0300
+@@ -73,7 +73,7 @@
+ ENDPROC(cpu_v7m_do_resume)
+ #endif
+ 
+-	.section ".text.init", #alloc, #execinstr
++	.section ".text.init", "ax"
+ 
+ /*
+  *	__v7m_setup
+@@ -135,7 +135,7 @@
+ 	string cpu_elf_name "v7m"
+ 	string cpu_v7m_name "ARMv7-M"
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	/*
+ 	 * Match any ARMv7-M processor core.
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-xsc3.S b/arch/arm/mm/proc-xsc3.S
+--- a/arch/arm/mm/proc-xsc3.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-xsc3.S	2026-07-04 03:50:42.772553016 +0300
+@@ -499,7 +499,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ .macro xsc3_proc_info name:req, cpu_val:req, cpu_mask:req
+ 	.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/mm/proc-xscale.S b/arch/arm/mm/proc-xscale.S
+--- a/arch/arm/mm/proc-xscale.S	2021-10-19 20:47:34.000000000 +0300
++++ b/arch/arm/mm/proc-xscale.S	2026-07-04 03:50:42.774918350 +0300
+@@ -612,7 +612,7 @@
+ 
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ .macro xscale_proc_info name:req, cpu_val:req, cpu_mask:req, cpu_name:req, cache
+ 	.type	__\name\()_proc_info,#object
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/arch/arm/vdso/vdso.lds b/arch/arm/vdso/vdso.lds
+--- a/arch/arm/vdso/vdso.lds	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/vdso/vdso.lds	2026-07-04 03:48:15.773267715 +0300
+@@ -0,0 +1,125 @@
++/*
++ *
++ * Automatically generated file; DO NOT EDIT.
++ * Linux/arm 4.1.15 Kernel Configuration
++ *
++ */
++/*
++ * Helper macros to use CONFIG_ options in C/CPP expressions. Note that
++ * these only work with boolean and tristate options.
++ */
++/*
++ * Getting something that works in C and CPP for an arg that may or may
++ * not be defined is tricky.  Here, if we have "#define CONFIG_BOOGER 1"
++ * we match on the placeholder define, insert the "0," for arg1 and generate
++ * the triplet (0, 1, 0).  Then the last step cherry picks the 2nd arg (a one).
++ * When CONFIG_BOOGER is not defined, we generate a (... 1, 0) pair, and when
++ * the last step cherry picks the 2nd arg, we get a zero.
++ */
++/*
++ * IS_BUILTIN(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'y', 0
++ * otherwise. For boolean options, this is equivalent to
++ * IS_ENABLED(CONFIG_FOO).
++ */
++/*
++ * IS_MODULE(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'm', 0
++ * otherwise.
++ */
++/*
++ * IS_REACHABLE(CONFIG_FOO) evaluates to 1 if the currently compiled
++ * code can call a function defined in code compiled based on CONFIG_FOO.
++ * This is similar to IS_ENABLED(), but returns false when invoked from
++ * built-in code when CONFIG_FOO is set to 'm'.
++ */
++/*
++ * IS_ENABLED(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'y' or 'm',
++ * 0 otherwise.
++ */
++/*
++ * Adapted from arm64 version.
++ *
++ * GNU linker script for the VDSO library.
++ *
++ * Copyright (C) 2012 ARM Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * Author: Will Deacon <will.deacon@arm.com>
++ * Heavily based on the vDSO linker scripts for other archs.
++ */
++/* const.h: Macros for dealing with constants.  */
++/* Some constant macros are used in both assembler and
++ * C code.  Therefore we cannot annotate them always with
++ * 'UL' and other type specifiers unilaterally.  We
++ * use the following macros to deal with this.
++ *
++ * Similarly, _AT() will cast an expression with a type in C, but
++ * leave it unchanged in asm.
++ */
++/*
++ *  arch/arm/include/asm/page.h
++ *
++ *  Copyright (C) 1995-2003 Russell King
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++/* PAGE_SHIFT determines the page size */
++OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")
++OUTPUT_ARCH(arm)
++SECTIONS
++{
++ PROVIDE(_start = .);
++ . = SIZEOF_HEADERS;
++ .hash : { *(.hash) } :text
++ .gnu.hash : { *(.gnu.hash) }
++ .dynsym : { *(.dynsym) }
++ .dynstr : { *(.dynstr) }
++ .gnu.version : { *(.gnu.version) }
++ .gnu.version_d : { *(.gnu.version_d) }
++ .gnu.version_r : { *(.gnu.version_r) }
++ .note : { *(.note.*) } :text :note
++ .eh_frame_hdr : { *(.eh_frame_hdr) } :text :eh_frame_hdr
++ .eh_frame : { KEEP (*(.eh_frame)) } :text
++ .dynamic : { *(.dynamic) } :text :dynamic
++ .rodata : { *(.rodata*) } :text
++ .text : { *(.text*) } :text =0xe7f001f2
++ .got : { *(.got) }
++ .rel.plt : { *(.rel.plt) }
++ /DISCARD/ : {
++  *(.note.GNU-stack)
++  *(.data .data.* .gnu.linkonce.d.* .sdata*)
++  *(.bss .sbss .dynbss .dynsbss)
++ }
++}
++/*
++ * We must supply the ELF program headers explicitly to get just one
++ * PT_LOAD segment, and set the flags explicitly to make segments read-only.
++ */
++PHDRS
++{
++ text PT_LOAD FLAGS(5) FILEHDR PHDRS; /* PF_R|PF_X */
++ dynamic PT_DYNAMIC FLAGS(4); /* PF_R */
++ note PT_NOTE FLAGS(4); /* PF_R */
++ eh_frame_hdr PT_GNU_EH_FRAME;
++}
++VERSION
++{
++ LINUX_2.6 {
++ global:
++  __vdso_clock_gettime;
++  __vdso_gettimeofday;
++ local: *;
++ };
++}
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/block/deadline-iosched.c b/block/deadline-iosched.c
+--- a/block/deadline-iosched.c	2021-10-19 20:47:35.000000000 +0300
++++ b/block/deadline-iosched.c	2026-07-04 04:04:36.248661880 +0300
+@@ -17,10 +17,10 @@
+ /*
+  * See Documentation/block/deadline-iosched.txt
+  */
+-static const int read_expire = HZ / 2;  /* max time before a read is submitted. */
+-static const int write_expire = 5 * HZ; /* ditto for writes, these limits are SOFT! */
+-static const int writes_starved = 2;    /* max times reads can starve a write */
+-static const int fifo_batch = 16;       /* # of sequential requests treated as one
++static const int read_expire = 15 * HZ / 100;  /* max time before a read is submitted. */
++static const int write_expire = 75 * HZ / 100; /* ditto for writes, these limits are SOFT! */
++static const int writes_starved = 4;    /* max times reads can starve a write */
++static const int fifo_batch = 8;        /* # of sequential requests treated as one
+ 				     by the above parameters. For throughput. */
+ 
+ struct deadline_data {
+@@ -131,7 +131,7 @@
+ 	/*
+ 	 * check for front merge
+ 	 */
+-	if (dd->front_merges) {
++	if (dd->front_merges && !blk_queue_nonrot(q)) {
+ 		sector_t sector = bio_end_sector(bio);
+ 
+ 		__rq = elv_rb_find(&dd->sort_list[bio_data_dir(bio)], sector);
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/drivers/cpufreq/cpufreq_interactive.c b/drivers/cpufreq/cpufreq_interactive.c
+--- a/drivers/cpufreq/cpufreq_interactive.c	2021-10-19 20:47:35.000000000 +0300
++++ b/drivers/cpufreq/cpufreq_interactive.c	2026-07-04 03:46:51.063935837 +0300
+@@ -64,7 +64,7 @@
+ static struct mutex gov_lock;
+ 
+ /* Target load.  Lower values result in higher CPU speeds. */
+-#define DEFAULT_TARGET_LOAD 90
++#define DEFAULT_TARGET_LOAD 75
+ static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
+ 
+ #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
+@@ -77,7 +77,7 @@
+ 	/* Hi speed to bump to from lo speed when load burst (default max) */
+ 	unsigned int hispeed_freq;
+ 	/* Go to hi speed when CPU load at or above this value. */
+-#define DEFAULT_GO_HISPEED_LOAD 99
++#define DEFAULT_GO_HISPEED_LOAD 75
+ 	unsigned long go_hispeed_load;
+ 	/* Target load. Lower values result in higher CPU speeds. */
+ 	spinlock_t target_loads_lock;
+@@ -87,7 +87,7 @@
+ 	 * The minimum amount of time to spend at a frequency before we can ramp
+ 	 * down.
+ 	 */
+-#define DEFAULT_MIN_SAMPLE_TIME (80 * USEC_PER_MSEC)
++#define DEFAULT_MIN_SAMPLE_TIME (20 * USEC_PER_MSEC)
+ 	unsigned long min_sample_time;
+ 	/*
+ 	 * The sample rate of the timer used to increase frequency
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/drivers/input/touchscreen/focaltech_touch/focaltech_flash.c b/drivers/input/touchscreen/focaltech_touch/focaltech_flash.c
+--- a/drivers/input/touchscreen/focaltech_touch/focaltech_flash.c	2021-10-19 20:47:36.000000000 +0300
++++ b/drivers/input/touchscreen/focaltech_touch/focaltech_flash.c	2026-07-04 03:58:44.371682686 +0300
+@@ -45,16 +45,28 @@
+ /*****************************************************************************
+ * Global variable or extern global variabls/functions
+ *****************************************************************************/
+-u8 fw_file[] = {
++static u8 fw_file[] = {
++#if FTS_AUTO_UPGRADE_EN || FTS_AUTO_LIC_UPGRADE_EN
+ #include FTS_UPGRADE_FW_FILE
++#else
++    0x00
++#endif
+ };
+ 
+-u8 fw_file2[] = {
++static u8 fw_file2[] = {
++#if FTS_AUTO_UPGRADE_EN || FTS_AUTO_LIC_UPGRADE_EN
+ #include FTS_UPGRADE_FW2_FILE
++#else
++    0x00
++#endif
+ };
+ 
+-u8 fw_file3[] = {
++static u8 fw_file3[] = {
++#if FTS_AUTO_UPGRADE_EN || FTS_AUTO_LIC_UPGRADE_EN
+ #include FTS_UPGRADE_FW3_FILE
++#else
++    0x00
++#endif
+ };
+ 
+ struct upgrade_module module_list[] = {
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/drivers/mmc/card/queue.c b/drivers/mmc/card/queue.c
+--- a/drivers/mmc/card/queue.c	2021-10-19 20:47:36.000000000 +0300
++++ b/drivers/mmc/card/queue.c	2026-07-04 03:46:51.064935865 +0300
+@@ -16,12 +16,14 @@
+ #include <linux/kthread.h>
+ #include <linux/scatterlist.h>
+ #include <linux/dma-mapping.h>
++#include <linux/pagemap.h>
+ 
+ #include <linux/mmc/card.h>
+ #include <linux/mmc/host.h>
+ #include "queue.h"
+ 
+ #define MMC_QUEUE_BOUNCESZ	65536
++#define MMC_QUEUE_READAHEAD_KB	1024
+ 
+ /*
+  * Prepare a MMC request. This just filters out odd stuff.
+@@ -209,6 +211,8 @@
+ 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
+ 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
+ 	queue_flag_clear_unlocked(QUEUE_FLAG_ADD_RANDOM, mq->queue);
++	mq->queue->backing_dev_info.ra_pages =
++		(MMC_QUEUE_READAHEAD_KB * 1024) / PAGE_CACHE_SIZE;
+ 	if (mmc_can_erase(card))
+ 		mmc_queue_setup_discard(mq->queue, card);
+ 
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/scripts/dtc/dtc-lexer.l b/scripts/dtc/dtc-lexer.l
+--- a/scripts/dtc/dtc-lexer.l	2021-10-19 20:47:40.000000000 +0300
++++ b/scripts/dtc/dtc-lexer.l	2026-07-04 03:48:02.001884502 +0300
+@@ -39,7 +39,7 @@
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+ #define	YY_USER_ACTION \
+diff -ruN -x .config -x .version -x Module.symvers -x '*.o' -x '*.cmd' -x '*.s' -x '*.d' -x '*.a' -x vmlinux -x 'vmlinux*' -x System.map -x Image -x zImage -x generated -x config -x auto.conf -x tristate.conf -x kernel.release -x config_data.h -x hz.bc -x timeconst.h -x crc32table.h -x consolemap_deftbl.c -x defkeymap.c -x '*.gen.S' -x '*.tab.c' -x '*.tab.h' -x '*.lex.c' -x keywords.hash.c -x zconf.hash.c -x devicetable-offsets.h -x elfconfig.h -x '*.mod.c' -x '.tmp*' a/scripts/dtc/dtc-lexer.lex.c_shipped b/scripts/dtc/dtc-lexer.lex.c_shipped
+--- a/scripts/dtc/dtc-lexer.lex.c_shipped	2021-10-19 20:47:40.000000000 +0300
++++ b/scripts/dtc/dtc-lexer.lex.c_shipped	2026-07-04 03:48:02.003884555 +0300
+@@ -637,7 +637,7 @@
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+ #define	YY_USER_ACTION \
+@@ -2192,4 +2192,3 @@
+ 
+ 	return 1;
+ }
+-

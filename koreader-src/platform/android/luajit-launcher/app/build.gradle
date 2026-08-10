@@ -1,0 +1,141 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'org.koreader.launcher'
+    ndkVersion '23.2.8568313'
+    ndkPath System.getenv('ANDROID_NDK_HOME')
+    compileSdk rootProject.ext.compileSdk
+    def baseVersionCode = versCode as Integer
+
+    aaptOptions {
+        noCompress '7z'
+    }
+
+    defaultConfig {
+        applicationId "org.koreader.launcher"
+        versionName versName
+        minSdkVersion rootProject.ext.minSdk
+        targetSdkVersion rootProject.ext.targetSdk
+
+        manifestPlaceholders.APP_NAME = projectName
+
+        buildConfigField "String", "APP_NAME", '"' + projectName + '"'
+        buildConfigField "boolean", "IN_APP_UPDATES", "false"
+        buildConfigField "boolean", "SUPPORTS_RUNTIME_CHANGES", "false"
+
+        buildConfigField "String", "SEVENZIP_LIB", '"' + sevenZipLib + '"'
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = [ '../assets', assetsPath ]
+            jniLibs.srcDirs = [ libsPath ]
+        }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+    }
+
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+        debug {
+            applicationIdSuffix ".debug"
+            minifyEnabled false
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    flavorDimensions = [ 'ABI', 'CHANNEL'  ]
+    productFlavors {
+        arm {
+            ndk { abiFilters "armeabi-v7a" }
+            dimension = 'ABI'
+            versionCode = baseVersionCode * 10 + 1
+        }
+        arm64 {
+            ndk { abiFilters "arm64-v8a" }
+            dimension = 'ABI'
+            versionCode = baseVersionCode * 10 + 2
+        }
+        x86 {
+            ndk { abiFilters "x86" }
+            dimension = 'ABI'
+            versionCode = baseVersionCode * 10 + 3
+        }
+        x86_64 {
+            ndk { abiFilters "x86_64" }
+            dimension = 'ABI'
+            versionCode = baseVersionCode * 10 + 4
+        }
+
+        fdroid {
+            dimension = 'CHANNEL'
+            applicationIdSuffix = '.fdroid'
+        }
+        rocks {
+            dimension = 'CHANNEL'
+            buildConfigField "boolean", "IN_APP_UPDATES", "true"
+            buildConfigField "boolean", "SUPPORTS_RUNTIME_CHANGES", "true"
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+        resources {
+            excludes += '/kotlin/**.kotlin_builtins'
+            excludes += '/kotlin/**.kotlin_metadata'
+            excludes += '/META-INF/**.kotlin_module'
+            excludes += '/META-INF/**.version'
+        }
+    }
+
+    lint {
+        disable 'ChromeOsAbiSupport'
+        disable 'GradleDependency'
+        disable 'QueryAllPackagesPermission'
+        disable 'SameParameterValue'
+        htmlReport false
+        xmlReport false
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach {
+            outputFileName = "NativeActivity.apk"
+        }
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:$androidx_core_version"
+    implementation "androidx.appcompat:appcompat:$androidx_appcompat_version"
+    implementation "androidx.legacy:legacy-support-v4:$androidx_supportv4_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_plugin_version"
+}

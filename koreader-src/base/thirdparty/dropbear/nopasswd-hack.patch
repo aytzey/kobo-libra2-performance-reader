@@ -1,0 +1,62 @@
+diff --git a/src/runopts.h b/src/runopts.h
+index c8072b3..a25539b 100644
+--- a/src/runopts.h
++++ b/src/runopts.h
+@@ -122,6 +122,7 @@ typedef struct svr_runopts {
+ 
+ 	buffer * banner;
+ 	char * pidfile;
++	int nopasschk;
+ 
+ 	char * authorized_keys_dir;
+ 
+diff --git a/src/svr-authpasswd.c b/src/svr-authpasswd.c
+index 899a8ab..410d53d 100644
+--- a/src/svr-authpasswd.c
++++ b/src/svr-authpasswd.c
+@@ -80,6 +80,15 @@ void svr_auth_password(int valid_user) {
+ 		return;
+ 	}
+ 
++	/*
++	 * Hack. Always auth successfully if we were launched with the -n flag.
++	 */
++	if (svr_opts.nopasschk) {
++		dropbear_log(LOG_WARNING, "Password-less mode enabled, you're in!");
++		send_msg_userauth_success();
++		return;
++	}
++
+ 	if (passwordlen > DROPBEAR_MAX_PASSWORD_LEN) {
+ 		dropbear_log(LOG_WARNING,
+ 				"Too-long password attempt for '%s' from %s",
+diff --git a/src/svr-runopts.c b/src/svr-runopts.c
+index 8034c50..5fc5aab 100644
+--- a/src/svr-runopts.c
++++ b/src/svr-runopts.c
+@@ -106,6 +106,7 @@ static void printhelp(const char * progname) {
+ 					"-l <interface>\n"
+ 					"		interface to bind on\n"
+ #endif
++					"-n             Disable password checking (/!\\ Hack, don't use this!)\n"
+ #if INETD_MODE
+ 					"-i		Start for inetd\n"
+ #endif
+@@ -177,6 +178,7 @@ void svr_getopts(int argc, char ** argv) {
+ 	svr_opts.delay_hostkey = 0;
+ 	svr_opts.pidfile = expand_homedir_path(DROPBEAR_PIDFILE);
+ 	svr_opts.authorized_keys_dir = "~/.ssh";
++	svr_opts.nopasschk = 0;
+ #if DROPBEAR_SVR_LOCALANYFWD
+ 	svr_opts.nolocaltcp = 0;
+ #endif
+@@ -285,6 +287,9 @@ void svr_getopts(int argc, char ** argv) {
+ 				case 'P':
+ 					next = &svr_opts.pidfile;
+ 					break;
++				case 'n':
++					svr_opts.nopasschk = 1;
++					break;
+ #ifdef SO_BINDTODEVICE
+ 				case 'l':
+ 					next = &svr_opts.interface;

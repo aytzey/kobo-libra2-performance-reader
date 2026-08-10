@@ -1,0 +1,17 @@
+local.properties
+project.properties
+
+.idea 
+.gradle 
+*.apk
+*.swp
+*.iml
+
+bin
+libs
+build
+app/.*
+app/build
+assets/libs
+assets/module
+jni/luajit/build

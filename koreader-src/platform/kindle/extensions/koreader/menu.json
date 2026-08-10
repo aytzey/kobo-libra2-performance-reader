@@ -1,0 +1,84 @@
+{
+	"items": [
+	{
+		"name": "KOReader",
+		"priority": 0,
+		"items": [
+		{
+			"name": "Start KOReader",
+			"if": "\"KindleVoyage\" -m!",
+			"priority": 2,
+			"action": "/mnt/us/koreader/koreader.sh",
+			"params": "--kual",
+			"status": false,
+			"internal": "status Start KOReader"
+		},
+		{
+			"name": "Start KOReader",
+			"if": "\"KindleVoyage\" -m",
+			"priority": 2,
+			"action": "/mnt/us/koreader/koreader.sh",
+			"params": "--kual",
+			"exitmenu": false,
+			"status": false,
+			"internal": "status Start KOReader"
+		},
+		{
+			"name": "Start KOReader (no framework)",
+			"priority": 4,
+			"action": "/mnt/us/koreader/koreader.sh",
+			"params": "--kual --framework_stop",
+			"status": false,
+			"internal": "status Kill the framework and start KOReader"
+		},
+		{
+			"name": "Start KOReader (ASAP)",
+			"if": "\"KindleVoyage\" -m!",
+			"priority": 6,
+			"action": "/mnt/us/koreader/koreader.sh",
+			"params": "--kual --asap",
+			"status": false,
+			"internal": "status Start KOReader ASAP"
+		},
+		{
+			"name": "Start KOReader (ASAP)",
+			"if": "\"KindleVoyage\" -m",
+			"priority": 6,
+			"action": "/mnt/us/koreader/koreader.sh",
+			"params": "--kual --asap",
+			"exitmenu": false,
+			"status": false,
+			"internal": "status Start KOReader ASAP"
+		},
+		{
+			"name": "Tools",
+			"priority": 7,
+			"items": [
+			{
+				"name": "Update KOReader",
+				"priority": 1,
+				"action": "./bin/koreader-ext.sh",
+				"params": "update_koreader",
+				"exitmenu": false,
+				"checked": true,
+				"refresh": false,
+				"status": false,
+				"internal": "status Try to update KOReader . . ."
+			},
+			{
+				"name": "Clean Install of KOReader",
+				"priority": 2,
+				"action": "./bin/koreader-ext.sh",
+				"params": "install_koreader",
+				"exitmenu": false,
+				"checked": true,
+				"refresh": false,
+				"status": false,
+				"internal": "status Try to install KOReader from scratch . . ."
+			}
+			]
+		}
+		]
+	}
+	]
+}

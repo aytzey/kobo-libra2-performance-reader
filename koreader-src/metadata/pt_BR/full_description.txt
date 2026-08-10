@@ -1,0 +1,11 @@
+<p>O KOReader é um leitor de livros eletrônicos otimizado para telas de tinta eletrônica. Ele pode abrir vários formatos e fornece ajustes de texto avançados.</p>
+<p>Veja abaixo uma seleção de suas muitas funcionalidades:</p>
+<ul>
+  <li>Suporta tanto a formatos de página fixa (PDF, DjVu, CBT, CBZ) quanto a formatos refluíveis de livro eletrônico (EPUB, FB2, Mobi, DOC, CHM, TXT, HTML). Documentos digitalizados em formato PDF&#47;DjVu podem ser refluídos. Direções de fluxo especiais para leitura de PDFs com duas colunas e mangás.</li>
+  <li>Interface de usuário multilíngue otimizada para telas de tinta eletrônica. Leitor altamente personalizável com opções completas de tipografia. Dicionários de hifenização multilíngue já estão incluídos.</li>
+  <li>Suporte para livro com escrita não latina, incluindo as línguas hebraica, árabe, persa, russa, chinesa, japonesa e coreana.</li>
+  <li>Recursos únicos de Mapa do Livro e no Navegador de Páginas para navegar pelo seu livro.</li>
+  <li>Modo especial de destaque de múltiplas páginas com várias opções para exportar localmente e online.</li>
+  <li>Consegue sincronizar seu progresso de leitura através de todos os seus dispositivos com KOReader.</li>
+  <li>Integrado com Calibre, Wallabag, Wikipédia, Google Tradutor e outros provedores de conteúdo.</li>
+</ul>

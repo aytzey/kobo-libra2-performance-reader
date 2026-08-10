@@ -1,0 +1,784 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+    echo "incompatible bash version: ${BASH_VERSION}, need >=4.0"
+    exit 1
+fi
+
+# shellcheck disable=2155
+declare -r CURDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+unset ANDROID_ARCH CMD HELP KODEBUG TARGET NO_BUILD VERBOSE
+
+# Helpers. {{{
+
+# shellcheck disable=2034
+declare -r ANSI_BLUE='\33[34;1m'
+# shellcheck disable=2034
+declare -r ANSI_RED='\33[31;1m'
+declare -r ANSI_RESET='\33[0m'
+
+opt_dry_run=0
+opt_timings=0
+
+function info() {
+    local color=ANSI_BLUE
+    if [[ "$1" = -c* ]]; then
+        color="ANSI_${1#-c}"
+        shift
+    fi
+    if [[ -t 2 ]]; then
+        printf '%b%s%b\n' "${!color}" "$*" "${ANSI_RESET}" 1>&2
+    else
+        printf '%s\n' "$*" 1>&2
+    fi
+}
+
+function err() {
+    info -cRED "$@"
+}
+
+function die() {
+    local code=$?
+    if [[ $# -ne 0 ]]; then
+        code="$1"
+        shift
+    fi
+    if [[ $# -ne 0 ]]; then
+        err "$@"
+    fi
+    exit "${code}"
+}
+
+function print_quoted() {
+    if [[ $# -ne 0 ]]; then
+        printf '%q' "$1"
+        shift
+    fi
+    if [[ $# -ne 0 ]]; then
+        printf ' %q' "$@"
+    fi
+}
+
+function run() {
+    info "$(print_quoted "$@")"
+    if [[ ${opt_dry_run} -ne 0 ]]; then
+        return
+    fi
+    local cmd=("$@")
+    local code=0
+    if [[ ${opt_timings} -ne 0 ]]; then
+        time "${cmd[@]}" || code=$?
+    else
+        "${cmd[@]}" || code=$?
+    fi
+    return ${code}
+}
+
+function run_make() {
+    local cmd=(make)
+    if [[ ${opt_dry_run} -ne 0 ]]; then
+        cmd+=(-n)
+    fi
+    if [[ "${CURDIR}" != "${PWD}" ]]; then
+        cmd+=(-C "${CURDIR}")
+    fi
+    if [[ "${TARGET}" == 'android' ]]; then
+        cmd+=("ANDROID_ARCH=${ANDROID_ARCH}")
+    fi
+    for param in TARGET KODEBUG VERBOSE; do
+        cmd+=("${param}=${!param}")
+    done
+    cmd+=("$@")
+    opt_dry_run=0 run "${cmd[@]}"
+}
+
+is_system() {
+    if ! case "$1" in
+        Linux) [[ "${OSTYPE}" = linux* ]] ;;
+        macOS) [[ "${OSTYPE}" = darwin* ]] ;;
+        Windows) [[ "${OSTYPE}" == 'cygwin' || "${OSTYPE}" == 'msys' ]] ;;
+        *) false ;;
+    esac then
+        die 1 "You need a $1 system to build this package"
+    fi
+}
+
+check_submodules() {
+    # NOTE: can't use a pipe, or the pipeline may fail
+    # due to `git submodule status` returning an error
+    # on `grep -q …` early exit (broken pipe).
+    if grep -qE '^-' <<<"$(git submodule status)"; then
+        TARGET='' run_make fetchthirdparty
+    fi
+}
+
+show_help() {
+    local help="${HELP}"
+    help="${help#"${help%%[![:space:]]*}"}"
+    help="${help%"${help##*[![:space:]]}"}"
+    printf '\n%s\n\n' "${help}"
+}
+
+# }}}
+
+# Target setup. {{{.
+
+declare -r TARGETS_HELP_MSG="\
+TARGET:
+
+    android-arm
+    android-arm64
+    android-x86
+    android-x86_64
+    cervantes
+    emulator                  Default if no TARGET is given
+    kindle                    Compatible with all Kindle models >= Kindle4
+    kindlehf                  Compatible with all Kindles with FW >= 5.16.3
+    kindlepw2                 With compiler optimizations for Kindle models >= Paperwhite 2
+    kindle-legacy             Needed only for Kindle2/3/DXG
+    kobo
+    kobov4                    Compatible with Mk.7+ Kobo devices on FW 4.x
+    kobov5                    Compatible with all Kobo & Tolino devices on FW 5.x
+    linux
+    macos                     MacOS app bundle
+    pocketbook
+    remarkable
+    remarkable-aarch64
+    sony-prstux
+    ubuntu-touch
+    win32
+"
+# shellcheck disable=2155
+declare -r RELEASE_TARGETS_HELP_MSG="$(sed -e '/^    \(emulator\|win32\)/d' <<<"${TARGETS_HELP_MSG}")"
+
+function setup_target() {
+    TARGET="$1"
+    shift 1
+    local valid=1
+    case "${TARGET}" in
+        # Emulator & native targets.
+        '' | emulator)
+            if [[ "${CMD}" == 'release' ]]; then
+                valid=0
+            fi
+            TARGET=''
+            ;;
+        linux) is_system Linux ;;
+        macos) is_system macOS ;;
+        win32) is_system Windows ;;
+        # Devices.
+        android-arm | android-arm64 | android-x86 | android-x86_64)
+            ANDROID_ARCH="${TARGET#android-}"
+            TARGET='android'
+            ;;
+        cervantes) ;;
+        kindle | kindlehf | kindlepw2 | kindle-legacy) ;;
+        kobo | kobov4 | kobov5) ;;
+        pocketbook) ;;
+        remarkable) ;;
+        remarkable-aarch64) ;;
+        sony-prstux) ;;
+        ubuntu-touch) ;;
+        # Invalid.
+        *)
+            valid=0
+            ;;
+    esac
+    if [[ "${valid}" -eq 0 ]]; then
+        err "ERROR: unsupported ${CMD} target \"${TARGET}\"."
+        show_help 1>&2
+        exit 1
+    fi
+    if [[ -z ${KODEBUG+x} && -z "${TARGET}" && "${CMD}" != 'release' ]]; then
+        # For the emulator, build a debug build by default.
+        KODEBUG=1
+    fi
+    # Fetch third party as needed.
+    check_submodules
+    # Automatically install Android NDK / SDK when not configured.
+    if [[ "${TARGET}" == 'android' ]]; then
+        local wanted=()
+        [[ -n "${ANDROID_NDK_HOME}${ANDROID_NDK_ROOT}" ]] || wanted+=('android-ndk')
+        [[ -n "${ANDROID_HOME}${ANDROID_SDK_ROOT}" ]] || wanted+=('android-sdk')
+        [[ ${#wanted} -eq 0 ]] || TARGET='' run_make "${wanted[@]}"
+    fi
+}
+
+# }}}
+
+# Common options handling. {{{
+
+declare -r BUILD_GETOPT_SHORT='bdnv'
+declare -r BUILD_GETOPT_LONG='no-build,debug,no-debug,verbose'
+
+declare -r E_OPTERR=85
+
+function build_options_help_msg() {
+    local section="$1"
+    local no_build_details="$2"
+    local debug_details="$3"
+    local no_debug_details="$4"
+    printf '%s' "${section}${section:+ }OPTIONS:
+
+    ${no_build_details:+-b, --no-build            do not build (}${no_build_details}${no_build_details:+)
+    }-d, --debug               enable debugging symbols${debug_details:+ (}${debug_details}${debug_details:+)}
+    -n, --no-debug            no debugging symbols${no_debug_details:+ (}${no_debug_details}${no_debug_details:+)}
+    -v, --verbose             make the build system more verbose"
+}
+
+function parse_options() {
+    local short_opts="$1"
+    local long_opts="$2"
+    local args_spec="$3"
+    shift 3
+    # First things first: check if getopt is a compatible (util-linux like) version.
+    if getopt -T >/dev/null 2>&1 || [[ $? -ne 4 ]]; then
+        die 1 "unsupported getopt version: $(getopt --version)"
+    fi
+    if ! opt=$(getopt -o "h${short_opts}" --long "help,${long_opts}" --name "kodev" -- "$@"); then
+        show_help 1>&2
+        exit ${E_OPTERR}
+    fi
+    # echo "opt: $opt"
+    eval set -- "${opt}"
+    OPTS=()
+    ARGS=()
+    while true; do
+        case "$1" in
+            -h | --help)
+                show_help
+                exit 0
+                ;;
+            -b | --no-build)
+                NO_BUILD=1
+                ;;
+            -d | --debug)
+                KODEBUG=1
+                ;;
+            -n | --no-debug)
+                KODEBUG=
+                ;;
+            -v | --verbose)
+                # shellcheck disable=SC2034
+                VERBOSE=1
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                OPTS+=("$1")
+                ;;
+        esac
+        shift
+    done
+    local expected
+    local valid=0
+    case "${args_spec}" in
+        '*') ;;
+        '+')
+            expected='1 or more'
+            [[ $# -ge 1 ]] || valid=1
+            ;;
+        '?')
+            expected='1 optional'
+            [[ $# -le 1 ]] || valid=1
+            ;;
+        *)
+            expected="${args_spec}"
+            [[ $# -eq "${args_spec}" ]] || valid=1
+            ;;
+    esac
+    if [[ ${valid} -ne 0 ]]; then
+        err "ERROR: invalid ${CMD} arguments; ${expected} expected but $# received"
+        show_help 1>&2
+        exit ${E_OPTERR}
+    fi
+    ARGS=("$@")
+    # echo "OPTS [${#OPTS[@]}]: $(print_quoted "${OPTS[@]}")"
+    # echo "ARGS [${#ARGS[@]}]: $(print_quoted "${ARGS[@]}")"
+}
+
+# }}}
+
+# Command: activate / check / fetch-thirdparty. {{{
+
+function kodev-activate() {
+    parse_options '' '' '0' "$@"
+    info "adding ${CURDIR} to \$PATH..."
+    export PATH="${PATH}:${CURDIR}"
+    exec "${SHELL}"
+}
+
+function kodev-check() {
+    parse_options '' '' '0' "$@"
+    check_submodules
+    "${CURDIR}/.ci/check.sh"
+}
+
+function kodev-fetch-thirdparty() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS>
+
+OPTIONS:
+
+    -v, --verbose             make the build system more verbose
+"
+    parse_options "v" "verbose" '0' "$@"
+    run_make fetchthirdparty
+}
+
+# }}}
+
+# Command: build / clean / release. {{{
+
+function kodev-build() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS> <TARGET>
+
+$(build_options_help_msg '' 'stop after the setup phase' 'default for emulator' 'default for other targets')
+
+${TARGETS_HELP_MSG}
+"
+    parse_options "${BUILD_GETOPT_SHORT}" "${BUILD_GETOPT_LONG}" '?' "$@"
+    setup_target "${ARGS[0]}"
+    run_make ${NO_BUILD:+setup}
+}
+
+function kodev-clean() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS> <TARGET>
+
+$(build_options_help_msg '' '' 'clean debug build' 'clean release build')
+
+${TARGETS_HELP_MSG}
+"
+    parse_options "${BUILD_GETOPT_SHORT/b/}" "${BUILD_GETOPT_LONG/no-build,/}" '?' "$@"
+    setup_target "${ARGS[0]}"
+    run_make clean
+}
+
+function kodev-release() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS> <TARGET> [TYPES]…
+
+OPTIONS:
+
+    -i, --ignore-translation  do not fetch translation for release
+
+$(build_options_help_msg 'BUILD' 'create update from existing build' '' 'default')
+
+${RELEASE_TARGETS_HELP_MSG}
+"
+    parse_options "i${BUILD_GETOPT_SHORT}" "ignore-translation,${BUILD_GETOPT_LONG}" '+' "$@"
+    local ignore_translation=0
+    for opt in "${OPTS[@]}"; do
+        case "${opt}" in
+            -i | --ignore-translation)
+                ignore_translation=1
+                ;;
+        esac
+    done
+    setup_target "${ARGS[0]}"
+    if [[ "${ignore_translation}" -eq 0 ]]; then
+        if ! TARGET='' run_make po; then
+            err "ERROR: failed to fetch translation."
+            echo "Tip: Use --ignore-translation OPTION if you want to build a release without translation." 2>&1
+            exit 1
+        fi
+    fi
+    set -- "${ARGS[@]/#/update-}"
+    shift
+    [[ $# -gt 0 ]] || set -- update
+    run_make ${NO_BUILD:+--assume-old=all} "$@"
+}
+
+# }}}
+
+# Command: prompt / run / wbuilder. {{{
+
+function kodev-prompt() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS>
+
+$(build_options_help_msg '' 'use existing build' 'default' '')
+"
+    parse_options "${BUILD_GETOPT_SHORT}" "${BUILD_GETOPT_LONG}" '0' "$@"
+    setup_target 'emulator'
+    local margs=()
+    if command -v rlwrap >/dev/null; then
+        margs+=(RWRAP='rlwrap')
+    fi
+    run_make ${NO_BUILD:+--assume-old=all} "${margs[@]}" run-prompt
+}
+
+function kodev-run() {
+    # Defaults.
+    KODEBUG=1
+    local screen_width=540
+    local screen_height=720
+    # NOTE: Speaking of Valgrind, if your libdrm/mesa isn't built w/ valgrind markings, there's a Valgrind suppression file for AMD cards in the tools folder.
+    #       Just append --suppressions=${PWD/tools/valgrind_amd.supp to your valgrind command.
+    local valgrind=(valgrind --tool=memcheck --keep-debuginfo=yes --leak-check=full --show-reachable=yes --trace-children=yes --track-origins=yes)
+    local callgrind=(valgrind --tool=callgrind --trace-children=yes)
+    local wrap=()
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS> <EMULATOR ARGS>
+       $0 ${CMD} <OPTIONS> <ANDROID TARGET> [ANDROID APK]
+
+$(build_options_help_msg '' 'use existing build' 'default' '')
+
+EMULATOR OPTIONS:
+
+    -H X, --screen-height=X  set height of the emulator screen (default: ${screen_height})
+    -W X, --screen-width=X   set width of the emulator screen (default: ${screen_width})
+    -D X, --screen-dpi=X     set DPI of the emulator screen (default: 160)
+    -t, --disable-touch      use this if you want to simulate keyboard only devices
+    -s FOO --simulate=FOO    simulate dimension and other specs for the given device:
+                             hidpi, kobo-forma, kobo-aura-one, kobo-clara, kobo-h2o,
+                             kindle-paperwhite, legacy-paperwhite, kindle
+    -g X, --gdb=X            run with debugger (default: ddd, cgdb, or gdb)
+    --callgrind              run with valgrind's callgrind
+    --valgrind[=X]           run with valgrind
+    -w X, --wrap=X           run with specified wrapper command
+
+    Extra arguments are forwarded to the emulator.
+
+    Default valgrind commands:
+    - callgrind: $(print_quoted "${callgrind[@]}")
+    - valgrind: $(print_quoted "${valgrind[@]}")
+
+ANDROID TARGET:
+
+    Install and run KOReader on an Android device connected through ADB.
+"
+    local short_opts="tg:::cW:H:D:s:w:"
+    local long_opts="disable-touch,gdb::,valgrind::,callgrind,screen-width:,screen-height:,screen-dpi:,simulate:,wrap:"
+    parse_options "${short_opts}${BUILD_GETOPT_SHORT}" "${long_opts},${BUILD_GETOPT_LONG}" '*' "$@"
+    # Handle custom options.
+    set -- "${OPTS[@]}"
+    while [[ $# -gt 0 ]]; do
+        PARAM="${1}"
+        # Support using an = assignment with short options (e.g., -f=blah instead of -f blah).
+        VALUE="${2/#=/}"
+        case "${PARAM}" in
+            # Command wrapper.
+            --callgrind)
+                # Try to use sensible defaults for valgrind.
+                if ! command -v valgrind >/dev/null; then
+                    die 1 "Couldn't find valgrind."
+                fi
+                wrap=("${callgrind[@]}")
+                ;;
+            -g | --gdb)
+                if [[ -n "${VALUE}" ]]; then
+                    declare -a "wrap=(${VALUE})"
+                else
+                    local -a candidates
+                    case "${OSTYPE}" in
+                        darwin*) candidates=(lldb) ;;
+                        # Try to use friendly defaults for GDB:
+                        # - DDD is a slightly less nice GUI
+                        # - cgdb is a nice curses-based GDB front
+                        # - GDB standard CLI has a fallback
+                        *) candidates=(ddd cgdb gdb) ;;
+                    esac
+                    if ! wrap=("$(command -v "${candidates[@]}" | head -n1)"); then
+                        die 1 "Couldn't find a supported debugger (${candidates[*]})."
+                    fi
+                fi
+                if [[ ${#wrap[@]} -eq 1 ]]; then
+                    # The standard GDB CLI needs a little hand holding to
+                    # properly pass arguments to the process it'll monitor.
+                    local gdb_common_args=(--directory "${CURDIR}/base" --args)
+                    case "${wrap[0]}" in
+                        cgdb | */cgdb)
+                            wrap+=(-- "${gdb_common_args[@]}")
+                            ;;
+                        ddd | */ddd)
+                            wrap+=(--gdb -- "${gdb_common_args[@]}")
+                            ;;
+                        gdb | */gdb)
+                            wrap+=("${gdb_common_args[@]}")
+                            ;;
+                    esac
+                fi
+                shift
+                ;;
+            --valgrind)
+                if [[ -n "${VALUE}" ]]; then
+                    declare -a "wrap=(${VALUE})"
+                else
+                    # Try to use sensible defaults for valgrind.
+                    if ! command -v valgrind >/dev/null; then
+                        die 1 "Couldn't find valgrind."
+                    fi
+                    wrap=("${valgrind[@]}")
+                fi
+                shift
+                ;;
+            -w | --wrap)
+                declare -a "wrap=(${VALUE})"
+                shift
+                ;;
+            # Simulated device specification.
+            -W | --screen-width)
+                screen_width="${VALUE}"
+                shift
+                ;;
+            -H | --screen-height)
+                screen_height="${VALUE}"
+                shift
+                ;;
+            -D | --screen-dpi)
+                screen_dpi="${VALUE}"
+                shift
+                ;;
+            -s | --simulate)
+                case "${VALUE}" in
+                    kindle)
+                        screen_width=600 screen_height=800 screen_dpi=167
+                        ;;
+                    legacy-paperwhite)
+                        screen_width=758 screen_height=1024 screen_dpi=212
+                        ;;
+                    kobo-forma)
+                        screen_width=1440 screen_height=1920 screen_dpi=300
+                        ;;
+                    kobo-aura-one)
+                        screen_width=1404 screen_height=1872 screen_dpi=300
+                        ;;
+                    kobo-clara | kindle-paperwhite)
+                        screen_width=1072 screen_height=1448 screen_dpi=300
+                        ;;
+                    kobo-h2o)
+                        screen_width=1080 screen_height=1429 screen_dpi=265
+                        ;;
+                    hidpi)
+                        screen_width=1500 screen_height=2000 screen_dpi=600
+                        ;;
+                    *)
+                        die 1 "ERROR: spec unknown for ${VALUE}."
+                        ;;
+                esac
+                shift
+                ;;
+            -t | --disable-touch)
+                export DISABLE_TOUCH=1
+                ;;
+        esac
+        shift
+    done
+    set -- "${ARGS[@]}"
+    # Setup target.
+    local target=''
+    if [[ "$1" = android-* ]]; then
+        target="$1"
+        shift
+    fi
+    setup_target "${target}"
+    # Build command prefix.
+    local rwrap=()
+    if [[ -z "${target}" ]]; then
+        rwrap+=(EMULATE_READER_W="${screen_width}" EMULATE_READER_H="${screen_height}" EMULATE_READER_DPI="${screen_dpi}")
+    fi
+    if [[ "${#wrap[@]}" -gt 0 ]]; then
+        rwrap+=("${wrap[@]}")
+    fi
+    # Build the final make command.
+    local margs=()
+    if [[ "${TARGET}" == 'android' ]]; then
+        if [[ "$1" = *.apk ]]; then
+            margs+=(ANDROID_APK="$1")
+            NO_BUILD=1
+            shift
+        fi
+        if [[ ${#rwrap[@]} -gt 0 || $# -gt 0 ]]; then
+            show_help 1>&2
+            exit ${E_OPTERR}
+        fi
+    else
+        # Enable debug traces by default.
+        set -- -d "$@"
+    fi
+    if [[ ${#rwrap[@]} -gt 0 ]]; then
+        margs+=(RWRAP="$(print_quoted "${rwrap[@]}")")
+    fi
+    if [[ $# -gt 0 ]]; then
+        margs+=(RARGS="$(print_quoted "$@")")
+    fi
+    # Run it.
+    run_make "${margs[@]}" ${NO_BUILD:+--assume-old=all --assume-old=update} run
+}
+
+function kodev-wbuilder() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS>
+
+$(build_options_help_msg '' '' '' '')
+"
+    parse_options "${BUILD_GETOPT_SHORT}" "${BUILD_GETOPT_LONG}" '0' "$@"
+    setup_target 'emulator'
+    run_make run-wbuilder
+}
+
+# }}}
+
+# Command: cov / test. {{{
+
+function kodev-cov() {
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS>
+
+OPTIONS:
+
+    -f, --full                show full coverage report (down to each line)
+    -s, --show-previous       show coverage stats from previous run
+
+$(build_options_help_msg 'BUILD' 'use existing build' '' 'default')
+"
+    parse_options "fs${BUILD_GETOPT_SHORT}" "full,show-previous,${BUILD_GETOPT_LONG}" '0' "$@"
+    # Handle custom options.
+    local show_full=''
+    local show_previous=''
+    for opt in "${OPTS[@]}"; do
+        case "${opt}" in
+            -f | --full)
+                show_full=1
+                ;;
+            -s | --show-previous)
+                show_previous=1
+                ;;
+        esac
+    done
+    setup_target 'emulator'
+    run_make ${NO_BUILD:+--assume-old=all} ${show_previous:+--assume-old=coverage-run} coverage${show_full:+-full}
+}
+
+function kodev-test() {
+    # shellcheck disable=1091
+    source "${CURDIR}/base/test-runner/runtests"
+    HELP="
+USAGE: $0 ${CMD} <OPTIONS> <TEST_SUITE> <TEST_NAMES>
+
+    TEST_SUITE: [all|base|bench|front]. Optional: default to all.
+    TEST_NAMES: if no TEST_NAMES are given, the full testsuite is run.
+
+${RUNTESTS_HELP}
+$(build_options_help_msg 'BUILD' 'use existing build' '' 'default')
+"
+    parse_options "${RUNTESTS_GETOPT_SHORT}${BUILD_GETOPT_SHORT}" "${RUNTESTS_GETOPT_LONG},${BUILD_GETOPT_LONG}" '*' "$@"
+    # Forward all options except for most build options.
+    local targs=(${VERBOSE:+-v})
+    set -- "${OPTS[@]}"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            # Those need special handling so an option-like argument is properly forwarded.
+            --busted | --meson)
+                targs+=("$1=$2")
+                shift
+                ;;
+            # Other.
+            *) targs+=("$1") ;;
+        esac
+        shift
+    done
+    set -- "${ARGS[@]}"
+    case "$1" in
+        all | base | bench | front)
+            suite="$1"
+            shift
+            ;;
+        *)
+            suite='all'
+            ;;
+    esac
+    targs+=("$@")
+    setup_target 'emulator'
+    run_make ${NO_BUILD:+--assume-old=all} "test${suite}" T="$(print_quoted "${targs[@]}")"
+}
+
+# }}}
+
+# Command: log. {{{
+
+function kodev-log() {
+    env PYTHONEXECUTABLE="$0 ${CMD}" ./tools/logcat.py "$@"
+}
+
+# }}}
+
+HELP_MSG="
+USAGE: $0 COMMAND <ARGS>
+
+Supported commands:
+
+  Building:
+
+    build               Build KOReader
+    clean               Clean KOReader build
+    release             Build KOReader release package
+
+  Emulator & Android:
+
+    run                 Run KOReader
+
+  Emulator only:
+
+    cov                 Run busted tests for coverage
+    prompt              Run a LuaJIT shell within KOReader's environment
+    test                Run busted tests
+    wbuilder            Run wbuilder.lua script (useful for building new UI widget)
+
+  Android only:
+
+    log                 Tail log stream for a running KOReader app
+
+  Miscellaneous:
+
+    activate            Bootstrap shell environment for kodev
+    fetch-thirdparty    Fetch & synchronize thirdparty dependencies
+    check               Run various linters
+"
+if [[ $# -lt 1 ]]; then
+    err "Missing command."
+    echo "${HELP_MSG}" 1>&2
+    exit 1
+fi
+
+CMD="$1"
+shift
+case "${CMD}" in
+    # Commands.
+    activate) ;;
+    build) ;;
+    check) ;;
+    clean) ;;
+    cov) ;;
+    fetch-thirdparty) ;;
+    log) ;;
+    prompt) ;;
+    release) ;;
+    run) ;;
+    test) ;;
+    wbuilder) ;;
+    # Options.
+    -h | --help)
+        echo "${HELP_MSG}"
+        exit 0
+        ;;
+    # Invalid.
+    *)
+        err "Unknown command: $1."
+        echo "${HELP_MSG}"
+        exit 8
+        ;;
+esac
+
+HELP="USAGE: $0 ${CMD}"
+"kodev-${CMD}" "$@"
+
+# vim: foldmethod=marker foldlevel=0 shiftwidth=4 softtabstop=4

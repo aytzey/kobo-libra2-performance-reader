@@ -1,0 +1,25 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2,9 +2,9 @@
+ project(ZeroMQ)
+ 
+ if(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
+-  cmake_minimum_required(VERSION 3.0.2)
++  cmake_minimum_required(VERSION 3.17.5)
+ else()
+-  cmake_minimum_required(VERSION 2.8.12)
++  cmake_minimum_required(VERSION 3.17.5)
+ endif()
+ 
+ include(CheckIncludeFiles)
+@@ -1469,6 +1469,10 @@
+ if(BUILD_SHARED)
+   target_link_libraries(libzmq ${CMAKE_THREAD_LIBS_INIT})
+ 
++  if(HAVE_CLOCK_GETTIME)
++    target_link_libraries(libzmq -lrt)
++  endif()
++
+   if(QNX)
+     target_link_libraries(libzmq -lsocket)
+   endif()

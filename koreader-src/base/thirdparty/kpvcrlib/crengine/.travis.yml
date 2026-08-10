@@ -1,0 +1,18 @@
+language: cpp
+
+dist: bionic
+sudo: false
+
+cache:
+  apt: true
+
+addons:
+  apt:
+    packages:
+      - clang-tidy-10
+      - cppcheck
+      - jq
+      # provides xmllint
+      - libxml2-utils
+
+script:  .ci/script.sh

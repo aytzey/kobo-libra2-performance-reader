@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=SDL2 Demo
+Comment=An SDL2 demo application
+Exec=ubuntu-touch-sdl-template
+Icon=ubuntu-touch-sdl-template.png
+Terminal=false
+Type=Application
+X-Ubuntu-Touch=true
+X-Ubuntu-Supported-Orientations=landscape

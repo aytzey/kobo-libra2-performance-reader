@@ -1,0 +1,25 @@
+# Generated build/install artefacts
+/backups/
+/build/
+/downloads/
+/external/
+/captures/
+/dist/
+/kernel/build/
+/koreader-src/.context/
+/koreader-src/base/build/
+/koreader-src/koreader-emulator-*/
+/koreader-src/koreader-kobo-*/
+/koreader-src/koreader-kobov4-*/
+
+# Local benchmark output may be regenerated.
+/dist/benchmarks/
+
+# Device/runtime state
+*.log
+*.old
+*.tmp
+.env
+*.env
+*.pem
+*.key
