@@ -41,6 +41,44 @@ The lab snapshot was tested against Kobo firmware 4.38.23648. Firmware,
 bootloader, storage state, and book structure can change results. Numbers from a
 desktop benchmark are not device measurements.
 
+## One-command workflow
+
+The repository has one portable entry point for both packaging and deployment.
+Python 3 and Bash are required; Windows users can install Git for Windows for
+Git Bash. A matching Kobo ARM toolchain is required for the optional native
+libraries and player binaries.
+
+On macOS or Linux:
+
+```sh
+./kobo build
+./kobo deploy
+```
+
+`deploy` finds a mounted KOBOeReader volume and keeps the existing backup and
+rollback behavior. Use an explicit mount when auto-detection is not possible:
+
+```sh
+./kobo deploy --mount /Volumes/KOBOeReader
+```
+
+For USB or Wi-Fi SSH deployment:
+
+```sh
+./kobo deploy --usb-ssh --host 192.168.2.2 --port 2222
+```
+
+On Windows PowerShell, use the same commands through `kobo.cmd`:
+
+```powershell
+.\kobo.cmd build
+.\kobo.cmd deploy
+```
+
+Set `KOBO_CC`, `KOBO_PLAYER_CC`, and `KOBO_USB_DHCPD_CC` when the ARM
+toolchain is not on `PATH`. Without those compilers, the source overlay still
+builds and the existing external-player fallback remains available.
+
 ## What is included
 
 ### Reader experience
@@ -127,6 +165,8 @@ flash a kernel without a verified recovery path and a matching device build.
 
 ```text
 koreader-src/       Vendored KOReader source and device-specific changes
+kobo.py             Portable build/deploy command implementation
+kobo, kobo.cmd      macOS/Linux and Windows launchers
 native/             Kobo-native C player and USB networking code
 kernel/             GPLv2 kernel patch, target config, and build notes
 scripts/            Build, package, deploy, benchmark, and test helpers

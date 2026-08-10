@@ -19,6 +19,8 @@
 *.log
 *.old
 *.tmp
+__pycache__/
+*.pyc
 .env
 *.env
 *.pem
