@@ -1,6 +1,6 @@
 # Kobo Libra 2 Performance Reader
 
-An unofficial, device-specific optimization layer for [KOReader](https://github.com/koreader/koreader) on the Kobo Libra 2 (N418), focused on fast PDF and EPUB reading, predictable touch input, and low-overhead device services.
+An unofficial, device-specific optimization layer for [KOReader](https://github.com/koreader/koreader) on the Kobo Libra 2 (N418). It targets the complete reading session: fast PDF and EPUB reading, predictable touch input, optional text-to-speech, Bluetooth audio, and low-overhead device services.
 
 This project is not affiliated with Kobo, Rakuten, or the KOReader maintainers.
 
@@ -16,10 +16,12 @@ The primary target is a calm, responsive reading session:
 
 - EPUB and PDF open/render paths stay local and native.
 - Page turns and touch events avoid unnecessary work.
+- The book page stays primary; controls appear when needed and reserve their
+  own space instead of covering text.
 - File browsing is optimized for a large `/mnt/onboard/Books` folder.
 - Background tuning is reversible when KOReader exits.
-- Optional audio, Bluetooth, Wi-Fi, and USB-SSH paths remain explicit rather
-  than becoming permanent background services.
+- Audio, Bluetooth, Wi-Fi, and USB-SSH remain opt-in rather than becoming
+  permanent background services.
 
 ## Current status
 
@@ -28,6 +30,8 @@ The primary target is a calm, responsive reading session:
 | Device | Kobo Libra 2 / N418 |
 | Primary reader | KOReader source snapshot with Libra 2 changes |
 | Main document formats | EPUB and PDF |
+| TTS / audio reading | Optional Google Cloud TTS generation, per-book cache, and native playback |
+| Bluetooth audio | Device-side scan, pairing, reconnect, and headset controls |
 | Native hot paths | BlitBuffer, MuPDF wrapper, CRe/XText, input, audio player |
 | Kernel work | Linux 4.1.15 source patch and target config under `kernel/` |
 | Device validation | Real-device validation exists in the private lab history |
@@ -39,22 +43,68 @@ desktop benchmark are not device measurements.
 
 ## What is included
 
-### Reader and UI
+### Reader experience
 
 - Libra 2-specific KOReader startup and power-profile tuning.
-- Lower-cost page-turn and touch-event paths.
-- Simpler one-handed reader controls and reduced menu startup work.
+- Lower-cost page-turn, touch-event, and redraw paths.
+- EPUB rendering through KOReader's CRe engine and PDF rendering through its
+  MuPDF path, with device-specific native fast paths around both.
+- One-handed reader controls with reduced menu startup work and progressive
+  disclosure for infrequent actions.
 - A focused Books folder flow with lighter file metadata handling.
-- Lookup modules kept out of the default reading path.
+- Lookup modules are kept out of the default reading path so highlighting and
+  annotation remain the primary text interaction.
 - Safer rerendering and document-lifecycle guards.
+- When audio reading is active, the reader reserves bottom space for its
+  controls so the player never sits on top of the page.
 
-### Native code
+### TTS and audio reading
+
+Audio reading is opt-in. Opening a book does not start synthesis, Bluetooth, or
+playback on its own.
+
+- The KOReader plugin calls the Google Cloud Text-to-Speech API. The API key is
+  entered through a local setup page served by the Kobo; the device shows a
+  plain IP address and port plus a short one-time password. The setup server
+  stops after saving or cancelling, and the key stays in KOReader settings.
+- Narration language is selected per book. The current built-in choices are
+  Turkish (`tr-TR-Wavenet-E`) and English (`en-US-Wavenet-D`); the cache key
+  includes the language and voice so changing language cannot reuse the wrong
+  audio.
+- Generation uses a 200-page window by default, but processes pages one at a
+  time. Requests are split below the provider's character limit, line
+  timepoints are stored when available, and completed pages are skipped.
+- Each page keeps its text lines, audio segments, metadata, and completion
+  marker. Partial pages can resume safely, and a selected range can be
+  regenerated from the cache manager.
+- A persistent generation bar shows the active range, current page, completed
+  pages, errors, and percentage. It is visible while caching is active without
+  covering the reading surface.
+- The playback bar remains at the bottom of the reader and reserves layout
+  space. It provides pause/resume, page return, resume-from-current-page,
+  playback speed (`0.75x`, `1x`, `1.2x`, `1.5x`, `2x`), volume controls, and a
+  line-level progress indicator when timepoints are available.
+- The native C player decodes and streams audio through ALSA/BlueALSA, uses
+  ARM NEON mixing where available, lowers its scheduling and I/O priority, and
+  retries transient output failures without blocking the reader.
+- Bluetooth discovery, pairing, forgetting, status, reconnect, and idle power
+  management run on the Kobo itself. Headset play/pause, volume, previous,
+  next, and stop events are handled through the device's available AVRCP input
+  events.
+
+The implementation lives in
+[`koreader-src/plugins/ttsreader.koplugin/`](koreader-src/plugins/ttsreader.koplugin/)
+and [`native/ttsreader-play.c`](native/ttsreader-play.c). The host smoke tests
+cover the process helper, native player, speed/volume paths, and transient
+audio behavior.
+
+### Native reader and device code
 
 - C hot paths for common grayscale and RGB tile conversions.
 - Native EPUB/CRe string and hashing fast paths.
 - Kobo-compatible input and ABI checks.
-- An optional native TTS player with pause, seek, speed, volume, and Bluetooth
-  recovery support.
+- Native TTS process control with pause, resume, seek, speed, volume, and
+  Bluetooth recovery support.
 - USB networking and SSH helper code for development and recovery.
 
 ### Kernel
@@ -106,6 +156,7 @@ real device, inspect the package and keep a known-good KOReader backup.
 ./scripts/test-overlay-deploy.sh
 ./scripts/test-ttsreader-helper-host.sh
 ./scripts/test-ttsreader-player-host.sh
+./scripts/test-usb-ssh-deploy.sh
 ```
 
 The tests validate shell behavior, package/deploy safety, native player smoke
