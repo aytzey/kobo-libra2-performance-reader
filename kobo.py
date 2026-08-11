@@ -13,6 +13,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+CONTAINERFILE = ROOT / "Dockerfile.kobo-build"
+CONTAINER_IMAGE = "kobo-libra2-performance-reader-build:2025.05"
 
 
 def _windows_bash_candidates() -> list[Path]:
@@ -81,7 +83,69 @@ def bash_path(path: Path, bash: str) -> str:
     return resolved.replace("\\", "/")
 
 
-def run_script(script_name: str, args: list[str], env_updates: dict[str, str] | None = None) -> int:
+def use_container() -> bool:
+    requested = os.environ.get("KOBO_USE_CONTAINER")
+    if requested is not None:
+        return requested.lower() not in {"0", "false", "no"}
+    if os.environ.get("KOBO_SKIP_NATIVE") == "1":
+        return False
+    return sys.platform != "linux"
+
+
+def container_runtime() -> str:
+    for candidate in ("docker", "podman"):
+        executable = shutil.which(candidate)
+        if executable:
+            return executable
+    raise RuntimeError(
+        "Native Kobo builds require Docker Desktop or WSL2 on this host. "
+        "Install one, or set KOBO_SKIP_NATIVE=1 for a source-only overlay."
+    )
+
+
+def container_mount(path: Path, destination: str) -> list[str]:
+    return ["--mount", f"type=bind,src={path.resolve()},dst={destination}"]
+
+
+def run_container_script(
+    script_name: str,
+    args: list[str],
+    env_updates: dict[str, str] | None,
+    extra_mounts: list[tuple[Path, str]],
+) -> int:
+    runtime = container_runtime()
+    build = subprocess.run(
+        [runtime, "build", "--tag", CONTAINER_IMAGE, "--file", str(CONTAINERFILE), str(ROOT)],
+        cwd=ROOT,
+        check=False,
+    )
+    if build.returncode:
+        return build.returncode
+
+    environment = os.environ.copy()
+    if env_updates:
+        environment.update(env_updates)
+    command = [runtime, "run", "--rm", *container_mount(ROOT, "/workspace"), "-w", "/workspace"]
+    for mount_path, destination in extra_mounts:
+        command.extend(container_mount(mount_path, destination))
+    if os.name != "nt" and hasattr(os, "getuid"):
+        command.extend(("--user", f"{os.getuid()}:{os.getgid()}"))
+    for name in ("KOBO_SKIP_NATIVE", "KOBO_TOOLCHAIN_AUTO_FETCH", "KOBO_TOOLCHAIN_URL", "KOBO_TOOLCHAIN_SHA256"):
+        value = environment.get(name)
+        if value is not None:
+            command.extend(("--env", f"{name}={value}"))
+    command.extend((CONTAINER_IMAGE, "bash", f"scripts/{script_name}", *args))
+    return subprocess.run(command, cwd=ROOT, check=False).returncode
+
+
+def run_script(
+    script_name: str,
+    args: list[str],
+    env_updates: dict[str, str] | None = None,
+    extra_mounts: list[tuple[Path, str]] | None = None,
+) -> int:
+    if use_container():
+        return run_container_script(script_name, args, env_updates, extra_mounts or [])
     bash = find_bash()
     command = [bash, bash_path(ROOT / "scripts" / script_name, bash), *args]
     environment = os.environ.copy()
@@ -136,12 +200,23 @@ def deploy(args: argparse.Namespace) -> int:
 
     if args.usb_ssh:
         script_args: list[str] = []
+        extra_mounts: list[tuple[Path, str]] = []
         if args.zip:
-            bash = find_bash()
-            script_args.extend(("--zip", bash_path(args.zip, bash)))
+            zip_path = args.zip.resolve()
+            try:
+                relative_zip = zip_path.relative_to(ROOT)
+            except ValueError:
+                if use_container():
+                    extra_mounts.append((zip_path.parent, "/overlay-input"))
+                    script_args.extend(("--zip", f"/overlay-input/{zip_path.name}"))
+                else:
+                    bash = find_bash()
+                    script_args.extend(("--zip", bash_path(zip_path, bash)))
+            else:
+                script_args.extend(("--zip", f"/workspace/{relative_zip.as_posix()}" if use_container() else bash_path(zip_path, find_bash())))
         if args.no_package:
             script_args.append("--no-package")
-        return run_script("deploy-libra2-overlay-usb-ssh.sh", script_args, environment)
+        return run_script("deploy-libra2-overlay-usb-ssh.sh", script_args, environment, extra_mounts)
 
     mount = Path(args.mount).expanduser() if args.mount else find_kobo_mount()
     if not mount:
@@ -149,6 +224,8 @@ def deploy(args: argparse.Namespace) -> int:
             "Kobo mount not found. Mount the device or use --mount PATH; "
             "for USB/Wi-Fi SSH use --usb-ssh."
         )
+    if use_container():
+        return run_script("deploy-libra2-overlay.sh", ["/kobo"], environment, [(mount, "/kobo")])
     bash = find_bash()
     return run_script("deploy-libra2-overlay.sh", [bash_path(mount, bash)], environment)
 
@@ -158,7 +235,7 @@ def parser() -> argparse.ArgumentParser:
         prog="kobo",
         description="Build and deploy the Kobo Libra 2 performance overlay.",
     )
-    root.add_argument("--version", action="version", version="kobo-libra2-performance-reader 0.1.0")
+    root.add_argument("--version", action="version", version="kobo-libra2-performance-reader 0.1.2")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("build", help="Build the source overlay ZIP in dist/")
 

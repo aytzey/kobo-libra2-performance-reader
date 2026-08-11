@@ -2,22 +2,22 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_PLAYER_CC="$(command -v arm-linux-gnueabihf-gcc || true)"
-CC="${KOBO_CC:-${DEFAULT_PLAYER_CC}}"
-PLAYER_CC="${KOBO_PLAYER_CC:-${DEFAULT_PLAYER_CC}}"
+source "${ROOT}/scripts/kobo-toolchain.sh"
+kobo_toolchain_ensure
+
+CC="${KOBO_CC}"
+PLAYER_CC="${KOBO_PLAYER_CC}"
 OUT_DIR="${ROOT}/build/kobo/ttsreader-player"
 OUT="${OUT_DIR}/libttsreader-player.so"
 PLAYER_OUT="${OUT_DIR}/ttsreader-play"
 SRC="${ROOT}/native/ttsreader-player.c"
 PLAYER_SRC="${ROOT}/native/ttsreader-play.c"
-STRIP="${KOBO_STRIP:-arm-linux-gnueabihf-strip}"
+ALSA_STUB_DIR="${OUT_DIR}/alsa-sdk"
+ALSA_STUB="${ALSA_STUB_DIR}/libasound.so"
+ALSA_STUB_SRC="${ROOT}/native/alsa-link-stub.c"
+STRIP="${KOBO_STRIP}"
 
-mkdir -p "${OUT_DIR}"
-
-if [[ -z "${CC}" || ! -x "${CC}" ]]; then
-  echo "Kobo ARM compiler not found; set KOBO_CC to the compiler path" >&2
-  exit 1
-fi
+mkdir -p "${OUT_DIR}" "${ALSA_STUB_DIR}"
 
 "${CC}" \
   -std=gnu99 \
@@ -38,9 +38,16 @@ fi
   -o "${OUT}" \
   "${SRC}"
 
-if [[ ! -x "${PLAYER_CC}" ]]; then
-  PLAYER_CC="${CC}"
-fi
+"${PLAYER_CC}" \
+  -std=gnu99 \
+  -shared \
+  -fPIC \
+  -Wall \
+  -Wextra \
+  -Werror \
+  -Wl,-soname,libasound.so.2 \
+  -o "${ALSA_STUB}" \
+  "${ALSA_STUB_SRC}"
 
 "${PLAYER_CC}" \
   -std=gnu99 \
@@ -53,12 +60,16 @@ fi
   -mfloat-abi=hard \
   -mfpu=neon \
   -I"${ROOT}/third_party/minimp3" \
+  -I"${ROOT}/native" \
+  -L"${ALSA_STUB_DIR}" \
   -Wl,-O1 \
   -Wl,--as-needed \
   -Wl,--gc-sections \
+  -Wl,--no-as-needed \
   -o "${PLAYER_OUT}" \
   "${PLAYER_SRC}" \
   -lasound \
+  -Wl,--as-needed \
   -lm
 
 if command -v "${STRIP}" >/dev/null 2>&1; then

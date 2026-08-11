@@ -2,23 +2,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_CC="$(command -v arm-kobov4-linux-gnueabihf-gcc || command -v arm-linux-gnueabihf-gcc || true)"
-CC="${KOBO_USB_DHCPD_CC:-${KOBO_CC:-${DEFAULT_CC}}}"
-STRIP="${KOBO_STRIP:-}"
+source "${ROOT}/scripts/kobo-toolchain.sh"
+kobo_toolchain_ensure
+
+CC="${KOBO_USB_DHCPD_CC}"
+STRIP="${KOBO_STRIP}"
 OUT_DIR="${ROOT}/build/kobo/usb-network"
 OUT="${OUT_DIR}/kobo-usb-dhcpd"
 SRC="${ROOT}/native/kobo-usb-dhcpd.c"
-
-if [[ ! -x "${CC}" ]]; then
-  CC="$(command -v arm-kobov4-linux-gnueabihf-gcc || command -v arm-linux-gnueabihf-gcc || true)"
-fi
-if [[ -z "${CC}" || ! -x "${CC}" ]]; then
-  echo "Kobo ARM compiler not found" >&2
-  exit 1
-fi
-if [[ -z "${STRIP}" ]]; then
-  STRIP="${CC%gcc}strip"
-fi
 
 mkdir -p "${OUT_DIR}"
 "${CC}" \

@@ -9,8 +9,10 @@ OUT="${DIST}/koreader-libra2-optimized-overlay.zip"
 TTSREADER_PLAYER_SO="${KOBO_LIBTTSREADER_PLAYER_SO:-}"
 TTSREADER_PLAYER_BIN="${KOBO_TTSREADER_PLAYER_BIN:-}"
 USB_DHCPD_BIN="${KOBO_USB_DHCPD_BIN:-}"
+SKIP_NATIVE="${KOBO_SKIP_NATIVE:-0}"
 
 source "${ROOT}/scripts/kobo-native-abi.sh"
+source "${ROOT}/scripts/kobo-toolchain.sh"
 
 cleanup() {
   rm -rf "${STAGE}"
@@ -42,17 +44,20 @@ preserve_packaged_lib() {
 }
 
 mkdir -p "${DIST}"
-if [[ -z "${TTSREADER_PLAYER_SO}" && -x "${ROOT}/scripts/build-ttsreader-player.sh" ]]; then
-  TTSREADER_PLAYER_SO="$("${ROOT}/scripts/build-ttsreader-player.sh" 2>/dev/null || true)"
-fi
-if [[ -z "${TTSREADER_PLAYER_BIN}" && -x "${ROOT}/build/kobo/ttsreader-player/ttsreader-play" ]]; then
-  TTSREADER_PLAYER_BIN="${ROOT}/build/kobo/ttsreader-player/ttsreader-play"
-fi
-if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/scripts/build-kobo-usb-dhcpd.sh" ]]; then
-  USB_DHCPD_BIN="$("${ROOT}/scripts/build-kobo-usb-dhcpd.sh" 2>/dev/null || true)"
-fi
-if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd" ]]; then
-  USB_DHCPD_BIN="${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd"
+if [[ "${SKIP_NATIVE}" != "1" ]]; then
+  kobo_toolchain_ensure
+  if [[ -z "${TTSREADER_PLAYER_SO}" && -x "${ROOT}/scripts/build-ttsreader-player.sh" ]]; then
+    TTSREADER_PLAYER_SO="$("${ROOT}/scripts/build-ttsreader-player.sh")"
+  fi
+  if [[ -z "${TTSREADER_PLAYER_BIN}" && -x "${ROOT}/build/kobo/ttsreader-player/ttsreader-play" ]]; then
+    TTSREADER_PLAYER_BIN="${ROOT}/build/kobo/ttsreader-player/ttsreader-play"
+  fi
+  if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/scripts/build-kobo-usb-dhcpd.sh" ]]; then
+    USB_DHCPD_BIN="$("${ROOT}/scripts/build-kobo-usb-dhcpd.sh")"
+  fi
+  if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd" ]]; then
+    USB_DHCPD_BIN="${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd"
+  fi
 fi
 
 mkdir -p "${STAGE}/.adds/koreader/bin"
@@ -218,6 +223,10 @@ chmod 755 "${STAGE}/.adds/koreader/koreader.sh"
 chmod 755 "${STAGE}/.adds/koreader/libra2-optimize.sh"
 
 rm -f "${OUT}"
-(cd "${STAGE}" && zip -qr "${OUT}" .)
+if command -v zip >/dev/null 2>&1; then
+  (cd "${STAGE}" && zip -qr "${OUT}" .)
+else
+  "$(kobo_toolchain_python)" "${ROOT}/scripts/create-overlay-zip.py" "${STAGE}" "${OUT}"
+fi
 
 echo "${OUT}"

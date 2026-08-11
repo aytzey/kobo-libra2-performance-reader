@@ -24,4 +24,5 @@ Run the relevant host checks before opening a pull request:
 ./scripts/test-overlay-deploy.sh
 ./scripts/test-ttsreader-helper-host.sh
 ./scripts/test-ttsreader-player-host.sh
+./scripts/test-kobo-toolchain.sh
 ```

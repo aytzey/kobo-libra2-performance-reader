@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #define MINIMP3_IMPLEMENTATION
 
-#include <alsa/asoundlib.h>
+#include "alsa-compat.h"
 #include <errno.h>
 #include <math.h>
 #include <sched.h>

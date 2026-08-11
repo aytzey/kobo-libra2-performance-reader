@@ -16,6 +16,15 @@ The source snapshot is based on the KOReader `v2026.03` release line.
 This public tree vendors the source so that the Libra 2 changes can be read in
 one place. Upstream copyright and license notices remain in the tree.
 
+## Build toolchain
+
+Native builds fetch the KOReader koxtoolchain 2025.05 kobov4 release artifact
+on demand from the official KOReader GitHub release. It is not redistributed
+in this repository: the launcher stores it only in the ignored external cache
+and verifies SHA-256
+d0a3a450eebf6b67961f5b7302b71deac64db676ca45a6b8210854dceb7a8f7d before
+extracting it.
+
 ## Kernel
 
 The kernel work targets Linux 4.1.15 and an i.MX/NTX Kobo configuration. The

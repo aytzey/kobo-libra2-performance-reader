@@ -11,8 +11,10 @@ STAGE="${KOREADER}/.libra2-overlay-stage-${STAMP}"
 TTSREADER_PLAYER_SO="${KOBO_LIBTTSREADER_PLAYER_SO:-}"
 TTSREADER_PLAYER_BIN="${KOBO_TTSREADER_PLAYER_BIN:-}"
 USB_DHCPD_BIN="${KOBO_USB_DHCPD_BIN:-}"
+SKIP_NATIVE="${KOBO_SKIP_NATIVE:-0}"
 
 source "${ROOT}/scripts/kobo-native-abi.sh"
+source "${ROOT}/scripts/kobo-toolchain.sh"
 
 cleanup() {
   rm -rf "${STAGE}"
@@ -22,6 +24,10 @@ trap cleanup EXIT
 if [[ ! -d "${KOREADER}" ]]; then
   echo "KOReader not found at ${KOREADER}" >&2
   exit 1
+fi
+
+if [[ "${SKIP_NATIVE}" != "1" ]]; then
+  kobo_toolchain_ensure
 fi
 
 mkdir -p "${STAGE}/frontend/document"
@@ -39,17 +45,19 @@ mkdir -p "${STAGE}/bin"
 mkdir -p "${STAGE}/libs"
 mkdir -p "${STAGE}/plugins"
 mkdir -p "${STAGE}/plugins/SSH.koplugin"
-if [[ -z "${TTSREADER_PLAYER_SO}" && -x "${ROOT}/scripts/build-ttsreader-player.sh" ]]; then
-  TTSREADER_PLAYER_SO="$("${ROOT}/scripts/build-ttsreader-player.sh" 2>/dev/null || true)"
-fi
-if [[ -z "${TTSREADER_PLAYER_BIN}" && -x "${ROOT}/build/kobo/ttsreader-player/ttsreader-play" ]]; then
-  TTSREADER_PLAYER_BIN="${ROOT}/build/kobo/ttsreader-player/ttsreader-play"
-fi
-if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/scripts/build-kobo-usb-dhcpd.sh" ]]; then
-  USB_DHCPD_BIN="$("${ROOT}/scripts/build-kobo-usb-dhcpd.sh" 2>/dev/null || true)"
-fi
-if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd" ]]; then
-  USB_DHCPD_BIN="${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd"
+if [[ "${SKIP_NATIVE}" != "1" ]]; then
+  if [[ -z "${TTSREADER_PLAYER_SO}" && -x "${ROOT}/scripts/build-ttsreader-player.sh" ]]; then
+    TTSREADER_PLAYER_SO="$("${ROOT}/scripts/build-ttsreader-player.sh")"
+  fi
+  if [[ -z "${TTSREADER_PLAYER_BIN}" && -x "${ROOT}/build/kobo/ttsreader-player/ttsreader-play" ]]; then
+    TTSREADER_PLAYER_BIN="${ROOT}/build/kobo/ttsreader-player/ttsreader-play"
+  fi
+  if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/scripts/build-kobo-usb-dhcpd.sh" ]]; then
+    USB_DHCPD_BIN="$("${ROOT}/scripts/build-kobo-usb-dhcpd.sh")"
+  fi
+  if [[ -z "${USB_DHCPD_BIN}" && -x "${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd" ]]; then
+    USB_DHCPD_BIN="${ROOT}/build/kobo/usb-network/kobo-usb-dhcpd"
+  fi
 fi
 
 cp "${SRC}/defaults.lua" "${STAGE}/defaults.lua"

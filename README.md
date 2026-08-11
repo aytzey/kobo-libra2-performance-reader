@@ -44,9 +44,14 @@ desktop benchmark are not device measurements.
 ## One-command workflow
 
 The repository has one portable entry point for both packaging and deployment.
-Python 3 and Bash are required; Windows users can install Git for Windows for
-Git Bash. A matching Kobo ARM toolchain is required for the optional native
-libraries and player binaries.
+The first native build automatically downloads KOReader's pinned kobov4
+toolchain, verifies its SHA-256, and keeps it under the ignored external
+directory. No workstation-specific compiler path is required.
+
+Linux and WSL use that toolchain directly. On macOS and Windows, the launcher
+automatically creates a small Linux build container and runs the same build
+inside it; Docker Desktop is the only host component it cannot install itself.
+Python 3 is required on every host.
 
 On macOS or Linux:
 
@@ -75,9 +80,10 @@ On Windows PowerShell, use the same commands through `kobo.cmd`:
 .\kobo.cmd deploy
 ```
 
-Set `KOBO_CC`, `KOBO_PLAYER_CC`, and `KOBO_USB_DHCPD_CC` when the ARM
-toolchain is not on `PATH`. Without those compilers, the source overlay still
-builds and the existing external-player fallback remains available.
+Set KOBO_CC when intentionally using a custom compiler. Set
+KOBO_TOOLCHAIN_AUTO_FETCH=0 to prohibit downloads. Set KOBO_SKIP_NATIVE=1 only
+when a source-only overlay is intentional; normal builds fail rather than
+silently dropping the native player or USB helper.
 
 ## What is included
 
@@ -167,6 +173,7 @@ flash a kernel without a verified recovery path and a matching device build.
 koreader-src/       Vendored KOReader source and device-specific changes
 kobo.py             Portable build/deploy command implementation
 kobo, kobo.cmd      macOS/Linux and Windows launchers
+Dockerfile.kobo-build Linux build environment for macOS and Windows
 native/             Kobo-native C player and USB networking code
 kernel/             GPLv2 kernel patch, target config, and build notes
 scripts/            Build, package, deploy, benchmark, and test helpers
@@ -177,9 +184,10 @@ LICENSES/           Full AGPL-3.0 and GPL-2.0 license texts
 
 ## Build the overlay
 
-The repository is source-first. A compatible Kobo ARM toolchain is required for
-native libraries; the build scripts accept environment overrides instead of
-embedding workstation paths.
+The repository is source-first. The build scripts provision the compatible
+Kobo ARM toolchain and their compile-only ALSA SDK shim automatically. The
+device still resolves its own libasound at runtime, so no host ALSA SDK or
+private workstation path is required.
 
 ```sh
 ./scripts/package-libra2-overlay.sh
@@ -197,6 +205,7 @@ real device, inspect the package and keep a known-good KOReader backup.
 ./scripts/test-ttsreader-helper-host.sh
 ./scripts/test-ttsreader-player-host.sh
 ./scripts/test-usb-ssh-deploy.sh
+./scripts/test-kobo-toolchain.sh
 ```
 
 The tests validate shell behavior, package/deploy safety, native player smoke
